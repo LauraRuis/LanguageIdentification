@@ -1,1 +1,0 @@
-PAD_TOKEN = '<pad>'

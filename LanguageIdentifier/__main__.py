@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-from Python.train import train
+from LanguageIdentifier.train import train
 
 
 def main():
@@ -10,9 +10,14 @@ def main():
     ap.add_argument('--mode', choices=['train', 'predict'], default='train')
     ap.add_argument('--output_dir', type=str, default='output')
 
+    ap.add_argument('--training_text', type=str, default='Data/x_train.txt')
+    ap.add_argument('--training_labels', type=str, default='Data/y_train.txt')
+    ap.add_argument('--testing_text', type=str, default='Data/x_test.txt')
+    ap.add_argument('--testing_labels', type=str, default='Data/y_test.txt')
+
     cfg = vars(ap.parse_args())
 
-    print("Config:")
+    print("Parameters:")
     for k, v in cfg.items():
         print("  %12s : %s" % (k, v))
 
