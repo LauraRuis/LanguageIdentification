@@ -67,12 +67,12 @@ def data_reader(x_file: Iterable, y_file: Iterable) -> dict:
 class WiLIDataset(Dataset):
 
     @staticmethod
-    def sort_key(ex):
-        return len(ex.form)
+    def sort_key(example):
+        return len(example.paragraph)
 
     def __init__(self, paragraph_path: str, label_path: str, fields: dict, **kwargs):
         """
-        Create a WiLIDataset given a path and field list.
+        Create a WiLIDataset given a path two the raw text and to the labels and field dict.
         """
 
         with io.open(os.path.expanduser(paragraph_path), encoding="utf8") as f_par, \
