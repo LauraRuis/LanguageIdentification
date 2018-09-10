@@ -18,7 +18,7 @@ def get_data_fields() -> dict:
         include_lengths=True, batch_first=True,
         init_token=None, eos_token=None, pad_token=PAD_TOKEN)
     language = Field(
-        batch_first=True, init_token=None, eos_token=None, pad_token=PAD_TOKEN)
+        batch_first=True, init_token=None, eos_token=None, pad_token=None, unk_token=None)
 
     nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
                           init_token=START_TOKEN, eos_token=END_TOKEN)
@@ -51,6 +51,7 @@ def data_reader(x_file: Iterable, y_file: Iterable) -> dict:
     example = empty_example()
 
     for x, y in zip(x_file, y_file):
+
         x = x.strip()
         y = y.strip()
 
