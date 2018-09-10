@@ -8,7 +8,8 @@ use_cuda = True if torch.cuda.is_available() else False
 device = torch.device(type='cuda') if use_cuda else torch.device(type='cpu')
 
 
-def train(training_text, training_labels, testing_text, testing_labels,**kwargs):
+def train(training_text: str, training_labels: str, testing_text: str, testing_labels: str,
+          **kwargs):
 
     training_data = WiLIDataset(training_text, training_labels, get_data_fields())
     testing_data = WiLIDataset(testing_text, testing_labels, get_data_fields())

@@ -65,20 +65,14 @@ def data_reader(x_file: Iterable, y_file: Iterable) -> dict:
 
 
 class WiLIDataset(Dataset):
-    """Defines a WiLIDataset Dataset. """
 
     @staticmethod
     def sort_key(ex):
         return len(ex.form)
 
-    def __init__(self, paragraph_path, label_path, fields, **kwargs):
-        """Create a WiLIDataset given a path and field list.
-        Arguments:
-            path (str): Path to the data file.
-            fields (dict[str: tuple(str, Field)]):
-                The keys should be a subset of the columns, and the
-                values should be tuples of (name, field).
-                Keys not present in the input dictionary are ignored.
+    def __init__(self, paragraph_path: str, label_path: str, fields: dict, **kwargs):
+        """
+        Create a WiLIDataset given a path and field list.
         """
 
         with io.open(os.path.expanduser(paragraph_path), encoding="utf8") as f_par, \
