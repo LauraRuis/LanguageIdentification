@@ -1,5 +1,7 @@
 from torchtext.data import Example
 PAD_TOKEN = '<pad>'
+START_TOKEN = '<start>'
+END_TOKEN = '<end>'
 
 
 def print_example(example: Example):

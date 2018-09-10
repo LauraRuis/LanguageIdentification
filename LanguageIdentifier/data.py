@@ -1,12 +1,12 @@
 import io
 import os
 
-from torchtext.data import Field
+from torchtext.data import Field, NestedField
 from torchtext.data.dataset import Dataset
 from torchtext.data.example import Example
 from typing import Iterable
 
-from LanguageIdentifier.utils import PAD_TOKEN
+from LanguageIdentifier.utils import PAD_TOKEN, START_TOKEN, END_TOKEN
 
 
 def get_data_fields() -> dict:
@@ -18,11 +18,15 @@ def get_data_fields() -> dict:
         include_lengths=True, batch_first=True,
         init_token=None, eos_token=None, pad_token=PAD_TOKEN)
     language = Field(
-        include_lengths=True, batch_first=True,
-        init_token=None, eos_token=None, pad_token=PAD_TOKEN)
+        batch_first=True, init_token=None, eos_token=None, pad_token=PAD_TOKEN)
+
+    nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
+                          init_token=START_TOKEN, eos_token=END_TOKEN)
+    characters = NestedField(nesting_field, pad_token=PAD_TOKEN, include_lengths=True)
 
     fields = {
         'paragraph':   ('paragraph', paragraph),
+        'characters': ('characters', characters),
         'language':    ('language', language)
     }
 
@@ -33,7 +37,8 @@ def empty_example() -> dict:
     ex = {
         'id':         [],
         'paragraph':  [],
-        'language':   []
+        'language':   [],
+        'characters': []
     }
     return ex
 
@@ -56,6 +61,7 @@ def data_reader(x_file: Iterable, y_file: Iterable) -> dict:
 
         example['paragraph'] = paragraph
         example['language'] = language
+        example['characters'] = [list(word) for word in paragraph]
 
         yield example
 
