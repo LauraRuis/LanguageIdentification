@@ -1,37 +1,45 @@
 import torch
-from torchtext.data import Iterator
 import os
+import sys
+import numpy as np
 
-from LanguageIdentifier.data import WiLIDataset, get_data_fields
-from LanguageIdentifier.utils import print_example, calculate_char_freqs
-
-use_cuda = True if torch.cuda.is_available() else False
-device = torch.device(type='cuda') if use_cuda else torch.device(type='cpu')
+from torchtext.data import Iterator
+from model import Model
+from test import test
 
 
-def train(training_text: str, training_labels: str, testing_text: str, testing_labels: str,
-          **kwargs):
+def train(model : Model, training_data : Iterator, testing_data : Iterator,
+          learning_rate : float, epochs : int):
 
-    # load training and testing data
-    fields = get_data_fields()
-    _paragraph = fields["paragraph"][-1]
-    _language = fields["language"][-1]
-    _characters = fields['characters'][-1]
+    # NLLLoss for using the log_softmax in the recurrent model
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    loss_function = torch.nn.NLLLoss()
 
-    training_data = WiLIDataset(training_text, training_labels, fields)
-    testing_data = WiLIDataset(testing_text, testing_labels, fields)
-    training_iterator = Iterator(training_data, 100, train=True,
-                                 sort_within_batch=True, device=device)  # TODO: batchsize 100 to arg in __main__
+    for i in range(epochs):
+        model.train()
+        epoch_losses = []
+        for j, batch in enumerate(iter(training_data)):
+            print("Epoch: {} / Batch: {}".format(i, j), end='\r')
+            sys.stdout.flush()
+            optimizer.zero_grad()
 
-    # print first training example
-    print("First training example: ")
-    print_example(training_data[0])
+            # We take the characters as input to the network, and the languages
+            # as targets
+            characters_reshaped = batch.characters[0]
+            characters = torch.autograd.Variable(characters_reshaped)
+            languages = batch.language
+            predictions = model.forward(characters)
+            loss = loss_function(predictions, languages.squeeze(1))
+            epoch_losses.append(loss.item()) 
 
-    # TODO: add <unk>
-    # build vocabularies
-    _paragraph.build_vocab(training_data, min_freq=1)
-    _language.build_vocab(training_data)
-    # _characters.build_vocab(training_data, min_freq=1000)  # TODO: fix for enormous char vocab size
+            # Update the weights
+            loss.backward()
+            optimizer.step()
 
-    # example batch
-    # batch = next(iter(training_iterator))
+        train_accuracy = test(model, training_data)
+        test_accuracy = test(model, testing_data)
+        print(test_accuracy)
+        print("Epoch: {} | Average loss: {} | Train accuracy: {} | Test accuracy: {}".format(
+              i + 1, np.mean(np.array(epoch_losses)), train_accuracy, test_accuracy
+        ))
+
