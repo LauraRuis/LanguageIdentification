@@ -6,7 +6,7 @@ from torchtext.data.dataset import Dataset
 from torchtext.data.example import Example
 from typing import Iterable
 
-from LanguageIdentifier.utils import PAD_TOKEN, START_TOKEN, END_TOKEN
+from utils import PAD_TOKEN, START_TOKEN, END_TOKEN
 
 
 def get_data_fields() -> dict:
@@ -22,7 +22,10 @@ def get_data_fields() -> dict:
 
     nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
                           init_token=START_TOKEN, eos_token=END_TOKEN)
-    characters = NestedField(nesting_field, pad_token=PAD_TOKEN, include_lengths=True)
+    # characters = NestedField(nesting_field, pad_token=PAD_TOKEN, include_lengths=True)
+    characters = Field(
+        include_lengths=True, batch_first=True,
+        init_token=None, eos_token=None, pad_token=PAD_TOKEN)
 
     fields = {
         'paragraph':   ('paragraph', paragraph),
@@ -62,7 +65,8 @@ def data_reader(x_file: Iterable, y_file: Iterable) -> dict:
 
         example['paragraph'] = paragraph
         example['language'] = language
-        example['characters'] = [list(word) for word in paragraph]
+        # example['characters'] = [list(word) for word in paragraph]
+        example['characters'] = list(x)[:250]
 
         yield example
 
@@ -95,6 +99,25 @@ class WiLIDataset(Dataset):
                     fields.append(field)
 
         super(WiLIDataset, self).__init__(examples, fields, **kwargs)
+
+
+def load_data(training_text: str, training_labels: str, testing_text: str, testing_labels: str, **kwargs) -> (WiLIDataset, WiLIDataset):
+
+    # load training and testing data
+    fields = get_data_fields()
+    _paragraph = fields["paragraph"][-1]
+    _language = fields["language"][-1]
+    _characters = fields['characters'][-1]
+
+    training_data = WiLIDataset(training_text, training_labels, fields) # TODO: validation split
+    testing_data = WiLIDataset(testing_text, testing_labels, fields)
+
+    # TODO: add <unk>
+    # build vocabularies
+    _paragraph.build_vocab(training_data, min_freq=1)
+    _language.build_vocab(training_data)
+    _characters.build_vocab(training_data, min_freq=1000)  # TODO: fix for enormous char vocab size
+    return training_data, testing_data
 
 
 if __name__ == "__main__":
