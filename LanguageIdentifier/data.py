@@ -6,7 +6,7 @@ from torchtext.data.dataset import Dataset
 from torchtext.data.example import Example
 from typing import Iterable
 
-from utils import PAD_TOKEN, START_TOKEN, END_TOKEN
+from LanguageIdentifier.utils import PAD_TOKEN, START_TOKEN, END_TOKEN
 
 
 def get_data_fields() -> dict:
@@ -23,6 +23,7 @@ def get_data_fields() -> dict:
     nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
                           init_token=START_TOKEN, eos_token=END_TOKEN)
     # characters = NestedField(nesting_field, pad_token=PAD_TOKEN, include_lengths=True)
+
     characters = Field(
         include_lengths=True, batch_first=True,
         init_token=None, eos_token=None, pad_token=PAD_TOKEN)
@@ -66,7 +67,7 @@ def data_reader(x_file: Iterable, y_file: Iterable) -> dict:
         example['paragraph'] = paragraph
         example['language'] = language
         # example['characters'] = [list(word) for word in paragraph]
-        example['characters'] = list(x)[:250]
+        example['characters'] = list(x)[:10]
 
         yield example
 
