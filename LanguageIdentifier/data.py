@@ -122,7 +122,7 @@ def load_data(training_text: str, training_labels: str, testing_text: str, testi
 
     # TODO: add <unk>
     # build vocabularies
-    _paragraph.build_vocab(training_data, min_freq=10)
+    _paragraph.build_vocab(training_data, min_freq=10)  # TODO: make min_freq parameter
     _language.build_vocab(training_data)
     _characters.build_vocab(training_data, min_freq=10)  # TODO: fix for enormous char vocab size
     return training_data, testing_data
