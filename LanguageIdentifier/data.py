@@ -5,8 +5,11 @@ from torchtext.data import Field, NestedField
 from torchtext.data.dataset import Dataset
 from torchtext.data.example import Example
 from typing import Iterable
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from LanguageIdentifier.utils import PAD_TOKEN, START_TOKEN, END_TOKEN
+
+from nltk.tokenize import sent_tokenize
 
 
 def get_data_fields() -> dict:
@@ -19,12 +22,12 @@ def get_data_fields() -> dict:
                        eos_token=END_TOKEN, pad_token=PAD_TOKEN)
     nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
                           init_token=START_TOKEN, eos_token=END_TOKEN)
-    
+
     paragraph = NestedField(nesting_field, pad_token=PAD_TOKEN, include_lengths=True)
 
     fields = {
-        'paragraph':   ('paragraph', paragraph),
         'characters': ('characters', characters),
+        'paragraph':   ('paragraph', paragraph),
         'language':    ('language', language)
     }
 
@@ -41,12 +44,13 @@ def empty_example() -> dict:
     return ex
 
 
-def data_reader(x_file: Iterable, y_file: Iterable, split_sentences : bool) -> dict:
+def data_reader(x_file: Iterable, y_file: Iterable, train : bool) -> dict:
     """
     Return examples as a dictionary.
     """
 
     example = empty_example()
+
 
     for x, y in zip(x_file, y_file):
 
@@ -55,8 +59,8 @@ def data_reader(x_file: Iterable, y_file: Iterable, split_sentences : bool) -> d
 
         examples = []
 
-        if split_sentences:
-            splitted_sentences = x.split(".")
+        if train:
+            splitted_sentences = sent_tokenize(x)
         else:
             splitted_sentences = [x]
 
@@ -68,7 +72,7 @@ def data_reader(x_file: Iterable, y_file: Iterable, split_sentences : bool) -> d
 
             example['paragraph'] = [list(word) for word in paragraph]
             example['language'] = language
-            example['characters'] = list(x)
+            example['characters'] = list(x) if not train else list(x)[:1000]
 
             examples.append(example)
         yield examples
@@ -82,7 +86,7 @@ class WiLIDataset(Dataset):
 
     @staticmethod
     def sort_key(example):
-        return len(example.paragraph)
+        return len(example.characters)
 
     def __init__(self, paragraph_path: str, label_path: str, fields: dict, split_sentences : bool, **kwargs):
         """
@@ -115,7 +119,7 @@ def load_data(training_text: str, training_labels: str, testing_text: str, testi
     _language = fields["language"][-1]
     _characters = fields['characters'][-1]
 
-    training_data = WiLIDataset(training_text, training_labels, fields, True) # TODO: validation split
+    training_data = WiLIDataset(training_text, training_labels, fields, True)
     testing_data = WiLIDataset(testing_text, testing_labels, fields, False)
 
     # TODO: add <unk>

@@ -43,7 +43,7 @@ def main():
     # Load datasets and create iterators to use while training / testing
     training_data, testing_data = load_data(**cfg)
     if cfg['mode'] == 'train':
-        training_iterator = Iterator(training_data, cfg['batch_size'], train=True, sort=True,
+        training_iterator = Iterator(training_data, cfg['batch_size'], train=True,
                                      sort_within_batch=True, device=device, repeat=False)
     testing_iterator = Iterator(testing_data, cfg['batch_size'], train=True,
                                 sort_within_batch=True, device=device, repeat=False)
