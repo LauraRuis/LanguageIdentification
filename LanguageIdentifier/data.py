@@ -41,7 +41,7 @@ def empty_example() -> dict:
     return ex
 
 
-def data_reader(x_file: Iterable, y_file: Iterable) -> dict:
+def data_reader(x_file: Iterable, y_file: Iterable, train: bool) -> dict:
     """
     Return examples as a dictionary.
     """
@@ -58,7 +58,10 @@ def data_reader(x_file: Iterable, y_file: Iterable) -> dict:
         # replace all numbers with 0
         x = re.sub('[0-9]+', '0', x)
 
-        characters = list(x)
+        if train:
+            characters = list(x)[:250]
+        else:
+            characters = list(x)
         x = x.split()
 
         paragraph = [word.lower() for word in x]
@@ -88,7 +91,12 @@ class WiLIDataset(Dataset):
 
         with io.open(os.path.expanduser(paragraph_path), encoding="utf8") as f_par, \
                 io.open(os.path.expanduser(label_path), encoding="utf8") as f_lab:
-            examples = [Example.fromdict(d, fields) for d in data_reader(f_par, f_lab)]
+
+            if "train" in paragraph_path:
+                train = True
+            else:
+                train = False
+            examples = [Example.fromdict(d, fields) for d in data_reader(f_par, f_lab, train)]
 
         if isinstance(fields, dict):
             fields, field_dict = [], fields

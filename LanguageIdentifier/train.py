@@ -27,7 +27,7 @@ def train(model : Model, training_data : Iterator, testing_data : Iterator,
 
             # We take the characters as input to the network, and the languages
             # as targets
-            characters_reshaped = batch.characters[0][:, :250]
+            characters_reshaped = batch.characters[0]
             characters = torch.autograd.Variable(characters_reshaped)
             languages = batch.language
             predictions = model.forward(characters)
