@@ -20,6 +20,7 @@ def get_data_fields() -> dict:
                        eos_token=END_TOKEN, pad_token=PAD_TOKEN)
     nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
                           init_token=START_TOKEN, eos_token=END_TOKEN)
+    
     paragraph = NestedField(nesting_field, pad_token=PAD_TOKEN, include_lengths=True)
 
     fields = {
@@ -40,52 +41,6 @@ def empty_example() -> dict:
     }
     return ex
 
-#
-# def data_reader(x_file: Iterable, y_file: Iterable, train : bool) -> dict:
-#     """
-#     Return examples as a dictionary.
-#     """
-#
-#     example = empty_example()
-#
-#     for x, y in zip(x_file, y_file):
-#
-#         x = x.strip()
-#         y = y.strip()
-#
-#         examples = []
-#
-#         if train:
-#             splitted_sentences = x.split(".")
-#         else:
-#             splitted_sentences = [x]
-#
-#         for x in splitted_sentences:
-#             if len(x) == 0: continue
-#             example = empty_example()
-#
-            # # replace all numbers with 0
-            # x = re.sub('[0-9]+', '0', x)
-#
-#             paragraph = x.split()
-#             paragraph = [word.lower() for word in paragraph]
-#             language = y
-#
-            # if train:
-            #     characters = list(x)[:250]
-            # else:
-            #     characters = list(x)
-#
-#             example['paragraph'] = [list(word) for word in paragraph]
-#             example['language'] = language
-#             example['characters'] = characters
-#
-#             examples.append(example)
-#         yield examples
-#
-#     # possible last sentence without newline after
-#     if len(example['paragraph']) > 0:
-#         yield [example]
 
 def data_reader(x_file: Iterable, y_file: Iterable, train: bool, split_sentences : bool) -> dict:
     """

@@ -29,7 +29,8 @@ class GRUIdentifier(RecurrentModel):
             self.hidden2label = nn.Linear(hidden_dim, n_classes)            
 
     def init_hidden(self, batch_size : int) -> torch.Tensor:
-        h_0 = Variable(torch.zeros(2 if self.bidirectional else 1, batch_size, self.hidden_dim))
+        h_0 = Variable(torch.zeros(2 if self.bidirectional else 1,
+                       batch_size, self.hidden_dim))
 
         if torch.cuda.is_available():
             return h_0.cuda()
@@ -39,8 +40,12 @@ class GRUIdentifier(RecurrentModel):
     def forward(self, sentence : Variable) -> torch.Tensor:
         batch_size = sentence.shape[0]
         x = self.embeddings(torch.transpose(sentence, 0, 1))
+
+        # Recurrent part
         hidden_in = self.init_hidden(batch_size)
         lstm_out, hidden_out = self.gru(x, hidden_in)
+
+        # Classification
         y = self.hidden2label(lstm_out[-1])
         log_probs = F.log_softmax(y, 1)
         return log_probs
