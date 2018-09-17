@@ -4,8 +4,8 @@ import sys
 import numpy as np
 
 from torchtext.data import Iterator
-from model import Model
-from test import test
+from LanguageIdentifier.model import Model
+from LanguageIdentifier.test import test
 
 
 def train(model : Model, training_data : Iterator, testing_data : Iterator,

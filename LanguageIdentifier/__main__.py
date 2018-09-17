@@ -4,9 +4,10 @@ import argparse
 import torch
 from torchtext.data import Iterator
 
-from train import train
-from data import load_data
-from model import GRUIdentifier
+from LanguageIdentifier.train import train
+from LanguageIdentifier.data import load_data
+from LanguageIdentifier.model import GRUIdentifier, CharCNN
+from LanguageIdentifier.utils import PAD_TOKEN
 
 
 def main():
@@ -56,6 +57,13 @@ def main():
             vocab_size = len(training_data.fields['paragraph'].vocab)
             n_classes = len(training_data.fields['language'].vocab)
             model = GRUIdentifier(vocab_size, n_classes, **cfg)
+        elif cfg['model'] == 'character_cnn':
+            vocab_size = len(training_data.fields['characters'].vocab)
+            n_classes = len(training_data.fields['language'].vocab)
+            padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
+            model = CharCNN(vocab_size, padding_idx,
+                            emb_dim=cfg["embedding_dim"], num_filters=30, window_size=3, dropout_p=0.33, n_classes=n_classes)
+
         else:
             raise NotImplementedError()
         if use_cuda: model.cuda()

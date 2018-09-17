@@ -6,7 +6,7 @@ from torchtext.data.dataset import Dataset
 from torchtext.data.example import Example
 from typing import Iterable
 
-from utils import PAD_TOKEN, START_TOKEN, END_TOKEN
+from LanguageIdentifier.utils import PAD_TOKEN, START_TOKEN, END_TOKEN
 
 
 def get_data_fields() -> dict:

@@ -2,6 +2,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
+import math
 
 
 class Model(nn.Module): # General class if we want all models to have common functions
@@ -43,3 +44,70 @@ class GRUIdentifier(RecurrentModel):
         y = self.hidden2label(lstm_out[-1])
         log_probs = F.log_softmax(y, 1)
         return log_probs
+
+
+class CharModel(nn.Module):
+
+  def __init__(self, n_chars, padding_idx, emb_dim=30, hidden_size=50, output_dim=50, dropout_p=0.5,
+               bi=False):
+    super(CharModel, self).__init__()
+
+    self.input_dim = n_chars
+    self.output_dim = output_dim
+    self.dropout_p = dropout_p
+    self.padding_idx = padding_idx
+    self.hidden_size = hidden_size
+    self.emb_dim = emb_dim
+
+    self.embeddings = nn.Embedding(n_chars, emb_dim, padding_idx=padding_idx)
+    self.init_embedding()
+    self.char_emb_dropout = nn.Dropout(p=dropout_p)
+
+    self.size = hidden_size * 2 if bi else hidden_size
+
+  def init_embedding(self):
+    init_range = math.sqrt(3 / self.emb_dim)
+    embed = self.embeddings.weight.clone()
+    embed.uniform_(-init_range, init_range)
+    self.embeddings.weight.data.copy_(embed)
+
+  def forward(self, sentence: Variable) -> torch.Tensor:
+
+      # embed characters
+      embedded = self.embeddings(sentence)
+
+      # character model
+      output = self.char_model(embedded)
+
+      return output
+
+
+class CharCNN(CharModel):
+
+  def __init__(self, n_chars, padding_idx, emb_dim, num_filters, window_size, dropout_p, n_classes):
+
+    super(CharCNN, self).__init__(n_chars, padding_idx, emb_dim=emb_dim, hidden_size=400, output_dim=100,
+                                  dropout_p=dropout_p, bi=False)
+
+    self.conv = nn.Conv1d(emb_dim, num_filters, window_size, padding=window_size - 1)
+    self.xavier_uniform()
+    self.hidden2label = nn.Linear(num_filters, n_classes)
+
+  def xavier_uniform(self, gain=1.):
+
+    # default pytorch initialization
+    for name, weight in self.conv.named_parameters():
+      if len(weight.size()) > 1:
+          nn.init.xavier_uniform_(weight.data, gain=gain)
+      elif "bias" in name:
+        weight.data.fill_(0.)
+
+  def char_model(self, embedded=None):
+
+    embedded = torch.transpose(embedded, 1, 2)  # (bsz, dim, time)
+    chars_conv = self.conv(embedded)
+    chars = F.max_pool1d(chars_conv, kernel_size=chars_conv.size(2)).squeeze(2)
+    labels = self.hidden2label(chars)
+    log_probs = F.log_softmax(labels, 1)
+
+    return log_probs
