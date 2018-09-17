@@ -14,20 +14,13 @@ def get_data_fields() -> dict:
     """"
     Creates torchtext fields for the I/O pipeline.
     """
-
-    paragraph = Field(
-        include_lengths=True, batch_first=True,
-        init_token=None, eos_token=None, pad_token=PAD_TOKEN)
     language = Field(
         batch_first=True, init_token=None, eos_token=None, pad_token=None, unk_token=None)
-
-    # nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
-                          # init_token=START_TOKEN, eos_token=END_TOKEN)
-    # characters = NestedField(nesting_field, pad_token=PAD_TOKEN, include_lengths=True)
-
-    characters = Field(
-        include_lengths=True, batch_first=True,
-        init_token=None, eos_token=None, pad_token=PAD_TOKEN)
+    characters = Field(include_lengths=True, batch_first=True, init_token=None,
+                       eos_token=END_TOKEN, pad_token=PAD_TOKEN)
+    nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
+                          init_token=START_TOKEN, eos_token=END_TOKEN)
+    paragraph = NestedField(nesting_field, pad_token=PAD_TOKEN, include_lengths=True)
 
     fields = {
         'paragraph':   ('paragraph', paragraph),
@@ -65,7 +58,7 @@ def data_reader(x_file: Iterable, y_file: Iterable) -> dict:
         # replace all numbers with 0
         x = re.sub('[0-9]+', '0', x)
 
-        characters = list(x)[:250]
+        characters = list(x)
         x = x.split()
 
         paragraph = [word.lower() for word in x]

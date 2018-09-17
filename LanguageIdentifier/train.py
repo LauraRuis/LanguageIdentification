@@ -20,13 +20,14 @@ def train(model : Model, training_data : Iterator, testing_data : Iterator,
         epoch_losses = []
         for j, batch in enumerate(iter(training_data)):
 
-            print("Epoch: {} / Batch: {}".format(i, j), end='\r')
-            sys.stdout.flush()
+            #print("Epoch: {} / Batch: {}".format(i, j))
+            # sys.stdout.flush()
+
             optimizer.zero_grad()
 
             # We take the characters as input to the network, and the languages
             # as targets
-            characters_reshaped = batch.characters[0]
+            characters_reshaped = batch.characters[0][:, :250]
             characters = torch.autograd.Variable(characters_reshaped)
             languages = batch.language
             predictions = model.forward(characters)
@@ -37,6 +38,7 @@ def train(model : Model, training_data : Iterator, testing_data : Iterator,
             loss.backward()
             optimizer.step()
 
+        print("Ended Epoch {}".format(i + 1))
         train_accuracy = test(model, training_data)
         test_accuracy = test(model, testing_data)
         print(test_accuracy)
