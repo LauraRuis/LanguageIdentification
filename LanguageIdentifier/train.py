@@ -19,9 +19,6 @@ def train(model : Model, training_data : Iterator, testing_data : Iterator,
         model.train()
         epoch_losses = []
         for j, batch in enumerate(iter(training_data)):
-
-            # print("Epoch: {} / Batch: {}".format(i, j), end='\r')
-            # sys.stdout.flush()
             optimizer.zero_grad()
 
             # We take the characters as input to the network, and the languages

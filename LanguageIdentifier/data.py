@@ -1,5 +1,6 @@
 import io
 import os
+import re
 
 from torchtext.data import Field, NestedField
 from torchtext.data.dataset import Dataset
@@ -67,10 +68,17 @@ def data_reader(x_file: Iterable, y_file: Iterable, train : bool) -> dict:
         for x in splitted_sentences:
             if len(x) == 0: continue
             example = empty_example()
+            # replace all numbers with 0
+            x = re.sub('[0-9]+', '0', x)
             paragraph = x.split()
             language = y
 
-            example['paragraph'] = [list(word) for word in paragraph]
+            if train:
+                characters = list(x)[:250]
+            else:
+                characters = list(x)
+
+            example['paragraph'] = [list(word.lower()) for word in paragraph]
             example['language'] = language
             example['characters'] = list(x) if not train else list(x)[:1000]
 
@@ -88,15 +96,20 @@ class WiLIDataset(Dataset):
     def sort_key(example):
         return len(example.characters)
 
-    def __init__(self, paragraph_path: str, label_path: str, fields: dict, split_sentences : bool, **kwargs):
+    def __init__(self, paragraph_path: str, label_path: str, fields: dict, split_sentences: bool, **kwargs):
         """
         Create a WiLIDataset given a path two the raw text and to the labels and field dict.
         """
 
         with io.open(os.path.expanduser(paragraph_path), encoding="utf8") as f_par, \
                 io.open(os.path.expanduser(label_path), encoding="utf8") as f_lab:
+
+            train = False
+            if "train" in paragraph_path:
+                train = True
+
             examples = []
-            for d in data_reader(f_par, f_lab, split_sentences):
+            for d in data_reader(f_par, f_lab, train, split_sentences):
                 for sentence in d:
                     examples.extend([Example.fromdict(sentence, fields)])
 
@@ -124,11 +137,11 @@ def load_data(training_text: str, training_labels: str, testing_text: str, testi
 
     # TODO: add <unk>
     # build vocabularies
-    _paragraph.build_vocab(training_data, min_freq=1)
+    _paragraph.build_vocab(training_data, min_freq=10)  # TODO: make min_freq parameter
     _language.build_vocab(training_data)
-    _characters.build_vocab(training_data, min_freq=1000)  # TODO: fix for enormous char vocab size
+    _characters.build_vocab(training_data, min_freq=10)  # TODO: fix for enormous char vocab size
     return training_data, testing_data
 
 
 if __name__ == "__main__":
-    WiLIDataset("../Data/x_train.txt", "../Data/y_train.txt", get_data_fields())
+    WiLIDataset("../Data/x_train.txt", "../Data/y_train.txt", get_data_fields(), True)
