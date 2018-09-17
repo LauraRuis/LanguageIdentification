@@ -1,5 +1,6 @@
 import io
 import os
+import re
 
 from torchtext.data import Field, NestedField
 from torchtext.data.dataset import Dataset
@@ -20,8 +21,8 @@ def get_data_fields() -> dict:
     language = Field(
         batch_first=True, init_token=None, eos_token=None, pad_token=None, unk_token=None)
 
-    nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
-                          init_token=START_TOKEN, eos_token=END_TOKEN)
+    # nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
+                          # init_token=START_TOKEN, eos_token=END_TOKEN)
     # characters = NestedField(nesting_field, pad_token=PAD_TOKEN, include_lengths=True)
 
     characters = Field(
@@ -61,13 +62,18 @@ def data_reader(x_file: Iterable, y_file: Iterable) -> dict:
 
         example = empty_example()
 
-        paragraph = x.split()
+        # replace all numbers with 0
+        x = re.sub('[0-9]+', '0', x)
+
+        characters = list(x)[:250]
+        x = x.split()
+
+        paragraph = [word.lower() for word in x]
         language = y
 
-        example['paragraph'] = paragraph
+        example['paragraph'] = [word.lower() for word in paragraph]
         example['language'] = language
-        # example['characters'] = [list(word) for word in paragraph]
-        example['characters'] = list(x)[:10]
+        example['characters'] = characters
 
         yield example
 
@@ -110,14 +116,14 @@ def load_data(training_text: str, training_labels: str, testing_text: str, testi
     _language = fields["language"][-1]
     _characters = fields['characters'][-1]
 
-    training_data = WiLIDataset(training_text, training_labels, fields) # TODO: validation split
+    training_data = WiLIDataset(training_text, training_labels, fields)  # TODO: validation split
     testing_data = WiLIDataset(testing_text, testing_labels, fields)
 
     # TODO: add <unk>
     # build vocabularies
-    _paragraph.build_vocab(training_data, min_freq=1)
+    _paragraph.build_vocab(training_data, min_freq=10)
     _language.build_vocab(training_data)
-    _characters.build_vocab(training_data, min_freq=1000)  # TODO: fix for enormous char vocab size
+    _characters.build_vocab(training_data, min_freq=10)  # TODO: fix for enormous char vocab size
     return training_data, testing_data
 
 
