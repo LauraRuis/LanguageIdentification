@@ -20,8 +20,8 @@ def train(model : Model, training_data : Iterator, testing_data : Iterator,
         epoch_losses = []
         for j, batch in enumerate(iter(training_data)):
 
-            #print("Epoch: {} / Batch: {}".format(i, j))
-            # sys.stdout.flush()
+            print("Epoch: {} / Batch: {}".format(i, j))
+            sys.stdout.flush()
 
             optimizer.zero_grad()
 
@@ -38,7 +38,6 @@ def train(model : Model, training_data : Iterator, testing_data : Iterator,
             loss.backward()
             optimizer.step()
 
-        print("Ended Epoch {}".format(i + 1))
         train_accuracy = test(model, training_data)
         test_accuracy = test(model, testing_data)
         print(test_accuracy)

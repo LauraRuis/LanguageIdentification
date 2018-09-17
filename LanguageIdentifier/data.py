@@ -40,8 +40,54 @@ def empty_example() -> dict:
     }
     return ex
 
+#
+# def data_reader(x_file: Iterable, y_file: Iterable, train : bool) -> dict:
+#     """
+#     Return examples as a dictionary.
+#     """
+#
+#     example = empty_example()
+#
+#     for x, y in zip(x_file, y_file):
+#
+#         x = x.strip()
+#         y = y.strip()
+#
+#         examples = []
+#
+#         if train:
+#             splitted_sentences = x.split(".")
+#         else:
+#             splitted_sentences = [x]
+#
+#         for x in splitted_sentences:
+#             if len(x) == 0: continue
+#             example = empty_example()
+#
+            # # replace all numbers with 0
+            # x = re.sub('[0-9]+', '0', x)
+#
+#             paragraph = x.split()
+#             paragraph = [word.lower() for word in paragraph]
+#             language = y
+#
+            # if train:
+            #     characters = list(x)[:250]
+            # else:
+            #     characters = list(x)
+#
+#             example['paragraph'] = [list(word) for word in paragraph]
+#             example['language'] = language
+#             example['characters'] = characters
+#
+#             examples.append(example)
+#         yield examples
+#
+#     # possible last sentence without newline after
+#     if len(example['paragraph']) > 0:
+#         yield [example]
 
-def data_reader(x_file: Iterable, y_file: Iterable, train: bool) -> dict:
+def data_reader(x_file: Iterable, y_file: Iterable, train: bool, split_sentences : bool) -> dict:
     """
     Return examples as a dictionary.
     """
@@ -53,29 +99,36 @@ def data_reader(x_file: Iterable, y_file: Iterable, train: bool) -> dict:
         x = x.strip()
         y = y.strip()
 
-        example = empty_example()
+        examples = []
 
-        # replace all numbers with 0
-        x = re.sub('[0-9]+', '0', x)
-
-        if train:
-            characters = list(x)[:250]
+        if split_sentences:
+            splitted_sentences = x.split(".")
         else:
-            characters = list(x)
-        x = x.split()
+            splitted_sentences = [x]
 
-        paragraph = [word.lower() for word in x]
-        language = y
+        for x in splitted_sentences:
+            if len(x) == 0: continue
+            example = empty_example()
+            # replace all numbers with 0
+            x = re.sub('[0-9]+', '0', x)
+            paragraph = x.split()
+            language = y
 
-        example['paragraph'] = [word.lower() for word in paragraph]
-        example['language'] = language
-        example['characters'] = characters
+            if train:
+                characters = list(x)[:250]
+            else:
+                characters = list(x)
 
-        yield example
+            example['paragraph'] = [list(word.lower()) for word in paragraph]
+            example['language'] = language
+            example['characters'] = characters
+
+            examples.append(example)
+        yield examples
 
     # possible last sentence without newline after
     if len(example['paragraph']) > 0:
-        yield example
+        yield [example]
 
 
 class WiLIDataset(Dataset):
@@ -84,7 +137,7 @@ class WiLIDataset(Dataset):
     def sort_key(example):
         return len(example.paragraph)
 
-    def __init__(self, paragraph_path: str, label_path: str, fields: dict, **kwargs):
+    def __init__(self, paragraph_path: str, label_path: str, fields: dict, split_sentences: bool, **kwargs):
         """
         Create a WiLIDataset given a path two the raw text and to the labels and field dict.
         """
@@ -92,11 +145,14 @@ class WiLIDataset(Dataset):
         with io.open(os.path.expanduser(paragraph_path), encoding="utf8") as f_par, \
                 io.open(os.path.expanduser(label_path), encoding="utf8") as f_lab:
 
+            train = False
             if "train" in paragraph_path:
                 train = True
-            else:
-                train = False
-            examples = [Example.fromdict(d, fields) for d in data_reader(f_par, f_lab, train)]
+
+            examples = []
+            for d in data_reader(f_par, f_lab, train, split_sentences):
+                for sentence in d:
+                    examples.extend([Example.fromdict(sentence, fields)])
 
         if isinstance(fields, dict):
             fields, field_dict = [], fields
@@ -117,8 +173,8 @@ def load_data(training_text: str, training_labels: str, testing_text: str, testi
     _language = fields["language"][-1]
     _characters = fields['characters'][-1]
 
-    training_data = WiLIDataset(training_text, training_labels, fields)  # TODO: validation split
-    testing_data = WiLIDataset(testing_text, testing_labels, fields)
+    training_data = WiLIDataset(training_text, training_labels, fields, True)  # TODO: validation split
+    testing_data = WiLIDataset(testing_text, testing_labels, fields, False)
 
     # TODO: add <unk>
     # build vocabularies
@@ -129,4 +185,4 @@ def load_data(training_text: str, training_labels: str, testing_text: str, testi
 
 
 if __name__ == "__main__":
-    WiLIDataset("../Data/x_train.txt", "../Data/y_train.txt", get_data_fields())
+    WiLIDataset("../Data/x_train.txt", "../Data/y_train.txt", get_data_fields(), True)
