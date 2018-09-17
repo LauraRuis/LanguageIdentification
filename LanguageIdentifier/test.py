@@ -13,9 +13,12 @@ def test(model : Model, testing_data : Iterator) -> float:
     batch_accuracies = []
 
     for j, batch in enumerate(iter(testing_data)):
+        if j == 100:
+            break
+
         # Show progress on test data
-        print("Test batch: {}          ".format(j), end='\r')
-        sys.stdout.flush()
+        # print("Test batch: {}          ".format(j), end='\r')
+        # sys.stdout.flush()
         characters = torch.autograd.Variable(batch.characters[0])
         languages = batch.language
         predictions = model.forward(characters)
