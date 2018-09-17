@@ -4,7 +4,7 @@ import sys
 import numpy
 
 from torchtext.data import Iterator
-from model import Model
+from LanguageIdentifier.model import Model
 
 
 def test(model : Model, testing_data : Iterator) -> float:
@@ -13,9 +13,6 @@ def test(model : Model, testing_data : Iterator) -> float:
     batch_accuracies = []
 
     for j, batch in enumerate(iter(testing_data)):
-        if j == 100:
-            break
-
         # Show progress on test data
         # print("Test batch: {}          ".format(j), end='\r')
         # sys.stdout.flush()

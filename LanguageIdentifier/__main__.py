@@ -16,10 +16,10 @@ def main():
     ap.add_argument('--mode', choices=['train', 'predict'], default='train')
     ap.add_argument('--output_dir', type=str, default='output')
 
-    ap.add_argument('--training_text', type=str, default='Data/x_train.txt')
-    ap.add_argument('--training_labels', type=str, default='Data/y_train.txt')
-    ap.add_argument('--testing_text', type=str, default='Data/x_test.txt')
-    ap.add_argument('--testing_labels', type=str, default='Data/y_test.txt')
+    ap.add_argument('--training_text', type=str, default='Data/x_train_split.txt')
+    ap.add_argument('--training_labels', type=str, default='Data/y_train_split.txt')
+    ap.add_argument('--testing_text', type=str, default='Data/x_test_split.txt')
+    ap.add_argument('--testing_labels', type=str, default='Data/y_test_split.txt')
     ap.add_argument('--model', type=str, default='recurrent')
     ap.add_argument('--learning_rate', type=float, default=1e-3)
     ap.add_argument('--batch_size', type=int, default=100)
@@ -38,7 +38,6 @@ def main():
 
     # Check for GPU
     use_cuda = True if torch.cuda.is_available() else False
-    #torch.cuda.set_device(0)
     device = torch.device(type='cuda') if use_cuda else torch.device(type='cpu')
     
     # Load datasets and create iterators to use while training / testing

@@ -40,7 +40,7 @@ def empty_example() -> dict:
     return ex
 
 
-def data_reader(x_file: Iterable, y_file: Iterable) -> dict:
+def data_reader(x_file: Iterable, y_file: Iterable, split_sentences : bool) -> dict:
     """
     Return examples as a dictionary.
     """
@@ -52,20 +52,29 @@ def data_reader(x_file: Iterable, y_file: Iterable) -> dict:
         x = x.strip()
         y = y.strip()
 
-        example = empty_example()
+        examples = []
 
-        paragraph = x.split()
-        language = y
+        if split_sentences:
+            splitted_sentences = x.split(".")
+        else:
+            splitted_sentences = [x]
 
-        example['paragraph'] = [list(word) for word in paragraph]
-        example['language'] = language
-        example['characters'] = list(x)
+        for x in splitted_sentences:
+            if len(x) == 0: continue
+            example = empty_example()
+            paragraph = x.split()
+            language = y
 
-        yield example
+            example['paragraph'] = [list(word) for word in paragraph]
+            example['language'] = language
+            example['characters'] = list(x)
+
+            examples.append(example)
+        yield examples
 
     # possible last sentence without newline after
     if len(example['paragraph']) > 0:
-        yield example
+        yield [example]
 
 
 class WiLIDataset(Dataset):
@@ -74,14 +83,17 @@ class WiLIDataset(Dataset):
     def sort_key(example):
         return len(example.paragraph)
 
-    def __init__(self, paragraph_path: str, label_path: str, fields: dict, **kwargs):
+    def __init__(self, paragraph_path: str, label_path: str, fields: dict, split_sentences : bool, **kwargs):
         """
         Create a WiLIDataset given a path two the raw text and to the labels and field dict.
         """
 
         with io.open(os.path.expanduser(paragraph_path), encoding="utf8") as f_par, \
                 io.open(os.path.expanduser(label_path), encoding="utf8") as f_lab:
-            examples = [Example.fromdict(d, fields) for d in data_reader(f_par, f_lab)]
+            examples = []
+            for d in data_reader(f_par, f_lab, split_sentences):
+                for sentence in d:
+                    examples.extend([Example.fromdict(sentence, fields)])
 
         if isinstance(fields, dict):
             fields, field_dict = [], fields
@@ -102,8 +114,8 @@ def load_data(training_text: str, training_labels: str, testing_text: str, testi
     _language = fields["language"][-1]
     _characters = fields['characters'][-1]
 
-    training_data = WiLIDataset(training_text, training_labels, fields) # TODO: validation split
-    testing_data = WiLIDataset(testing_text, testing_labels, fields)
+    training_data = WiLIDataset(training_text, training_labels, fields, True) # TODO: validation split
+    testing_data = WiLIDataset(testing_text, testing_labels, fields, False)
 
     # TODO: add <unk>
     # build vocabularies
