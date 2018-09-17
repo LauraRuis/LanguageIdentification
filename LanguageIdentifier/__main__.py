@@ -37,8 +37,9 @@ def main():
 
     # Check for GPU
     use_cuda = True if torch.cuda.is_available() else False
+    #torch.cuda.set_device(0)
     device = torch.device(type='cuda') if use_cuda else torch.device(type='cpu')
-
+    
     # Load datasets and create iterators to use while training / testing
     training_data, testing_data = load_data(**cfg)
     if cfg['mode'] == 'train':
