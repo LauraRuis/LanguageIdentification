@@ -4,7 +4,7 @@ import sys
 import numpy
 
 from torchtext.data import Iterator
-from model import Model
+from LanguageIdentifier.model import Model, RecurrentModel
 
 
 def test(model : Model, testing_data : Iterator) -> float:
@@ -13,15 +13,13 @@ def test(model : Model, testing_data : Iterator) -> float:
     batch_accuracies = []
 
     for j, batch in enumerate(iter(testing_data)):
-        if j == 100:
-            break
-
-        # Show progress on test data
-        # print("Test batch: {}          ".format(j), end='\r')
-        # sys.stdout.flush()
         characters = torch.autograd.Variable(batch.characters[0])
         languages = batch.language
-        predictions = model.forward(characters)
+        if isinstance(model, RecurrentModel):
+            predictions = model.forward(characters, batch.characters[1])
+        else:
+            predictions = model.forward(characters)
+
         _, predicted_languages = torch.topk(predictions, 1)
 
         # Save data needed to calculate accuracy for later

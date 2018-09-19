@@ -2,6 +2,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import math
 
 
@@ -29,19 +30,26 @@ class GRUIdentifier(RecurrentModel):
             self.hidden2label = nn.Linear(hidden_dim, n_classes)            
 
     def init_hidden(self, batch_size : int) -> torch.Tensor:
-        h_0 = Variable(torch.zeros(2 if self.bidirectional else 1, batch_size, self.hidden_dim))
+        h_0 = Variable(torch.zeros(2 if self.bidirectional else 1,
+                       batch_size, self.hidden_dim))
 
         if torch.cuda.is_available():
             return h_0.cuda()
         else:
             return h_0
 
-    def forward(self, sentence : Variable) -> torch.Tensor:
+    def forward(self, sentence : Variable, lengths : torch.Tensor) -> torch.Tensor:
         batch_size = sentence.shape[0]
         x = self.embeddings(torch.transpose(sentence, 0, 1))
+        packed_x = pack_padded_sequence(x, lengths)
+
+        # Recurrent part
         hidden_in = self.init_hidden(batch_size)
-        lstm_out, hidden_out = self.gru(x, hidden_in)
-        y = self.hidden2label(lstm_out[-1])
+        recurrent_out, hidden_out = self.gru(packed_x, hidden_in)
+        recurrent_out, _ = pad_packed_sequence(recurrent_out)
+
+        # Classification
+        y = self.hidden2label(recurrent_out[-1])
         log_probs = F.log_softmax(y, 1)
         return log_probs
 
