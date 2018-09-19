@@ -45,7 +45,7 @@ def empty_example() -> dict:
     return ex
 
 
-def data_reader(x_file: Iterable, y_file: Iterable, train: bool, split_sentences) -> dict:
+def data_reader(x_file: Iterable, y_file: Iterable, train: bool, split_sentences, max_chars: int) -> dict:
     """
     Return examples as a dictionary.
     """
@@ -75,7 +75,7 @@ def data_reader(x_file: Iterable, y_file: Iterable, train: bool, split_sentences
 
             example['paragraph'] = [list(word.lower()) for word in paragraph]
             example['language'] = language
-            example['characters'] = list(x) if not train else list(x)[:1000]
+            example['characters'] = list(x) if not train else list(x)[:max_chars]
 
             examples.append(example)
         yield examples
@@ -91,7 +91,8 @@ class WiLIDataset(Dataset):
     def sort_key(example):
         return len(example.characters)
 
-    def __init__(self, paragraph_path: str, label_path: str, fields: dict, split_sentences: bool, **kwargs):
+    def __init__(self, paragraph_path: str, label_path: str, fields: dict, split_sentences: bool, max_chars: int=1000,
+                 **kwargs):
         """
         Create a WiLIDataset given a path two the raw text and to the labels and field dict.
         """
@@ -104,7 +105,7 @@ class WiLIDataset(Dataset):
                 train = True
 
             examples = []
-            for d in data_reader(f_par, f_lab, train, split_sentences):
+            for d in data_reader(f_par, f_lab, train, split_sentences, max_chars):
                 for sentence in d:
                     examples.extend([Example.fromdict(sentence, fields)])
 
@@ -120,7 +121,7 @@ class WiLIDataset(Dataset):
 
 
 def load_data(training_text: str, training_labels: str, testing_text: str, testing_labels: str,
-              validation_text: str, validation_labels: str, **kwargs) -> (WiLIDataset, WiLIDataset):
+              validation_text: str, validation_labels: str, max_chars: int=1000, **kwargs) -> (WiLIDataset, WiLIDataset):
 
     # load training and testing data
     fields = get_data_fields()
@@ -128,7 +129,7 @@ def load_data(training_text: str, training_labels: str, testing_text: str, testi
     _language = fields["language"][-1]
     _characters = fields['characters'][-1]
 
-    training_data = WiLIDataset(training_text, training_labels, fields, False)
+    training_data = WiLIDataset(training_text, training_labels, fields, False, max_chars)
     validation_data = WiLIDataset(validation_text, validation_labels, fields, False)
     testing_data = WiLIDataset(testing_text, testing_labels, fields, False)
 
