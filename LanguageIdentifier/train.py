@@ -2,6 +2,7 @@ import torch
 import os
 import sys
 import numpy as np
+import math
 
 from torchtext.data import Iterator
 from torch.optim import adam
@@ -48,6 +49,8 @@ def train(optimizer: adam=None, model: Model=None,
             # characters = torch.autograd.Variable(batch.characters[0])
             characters = batch.characters[0]
             languages = batch.language
+            batch_size = characters.shape[0]
+
             if isinstance(model, RecurrentModel):
                 predictions = model.forward(characters, batch.characters[1])
             else:
@@ -58,33 +61,33 @@ def train(optimizer: adam=None, model: Model=None,
             _, predicted_languages = torch.topk(predictions, 1)
 
             # Save data needed to calculate accuracy for later
-            batch_accuracy = languages.eq(predicted_languages)
-            batch_accuracies.extend(batch_accuracy)
-            epoch_accuracies.extend(batch_accuracy)
+            batch_accuracy = languages.eq(predicted_languages).sum().item() / batch_size
+            batch_accuracies.append(batch_accuracy)
+            epoch_accuracies.append(batch_accuracy)
 
             # Update the weights
             loss.backward()
             optimizer.step()
 
             if (j + 1) % cfg["log_frequency"] == 0:
-                print("Logging: Epoch: {} | Iter: {} | Loss: {3.3f} | Batch accuracy: {3.3f}".format(
-                    i, j, loss.item(), batch_accuracies[-1].item()))
+                print("Logging: Epoch: {} | Iter: {} | Loss: {} | Batch accuracy: {}".format(
+                    i, j, round(loss.item(), 4), round(batch_accuracies[-1], 3)))
 
             if (j + 1) % cfg["eval_frequency"] == 0:
-                train_accuracy = numpy.array([sample.item() for sample in batch_accuracies]).mean()
+                train_accuracy = np.array(batch_accuracies).mean()
                 batch_accuracies = []
                 validation_accuracy = test(model, validation_data)
-                print("Evaluation: Epoch: {} | Iter: {} | Loss: {3.3f} | "
-                      "Av. Batch Train accuracy: {3.3f}| Validation accuracy {3.3f} ".format(
-                    i, j, loss.item(), train_accuracy, validation_accuracy))
+                print("Evaluation: Epoch: {} | Iter: {} | Loss: {} | "
+                      "Av. Batch Train accuracy: {}| Validation accuracy {} ".format(
+                    i, j, round(loss.item(), 4), round(train_accuracy, 2), round(validation_accuracy, 2)))
 
-        train_accuracy = numpy.array([sample.item() for sample in epoch_accuracies]).mean()
+        train_accuracy = np.array(epoch_accuracies).mean()
         epoch_accuracies = []
         validation_accuracy = test(model, validation_data)
 
-        print("Epoch: {} finished | Average loss: {3.3f} | "
-              "Av. Batch Train accuracy: {3.3f} | Validation accuracy: {3.3f}".format(
-              i + 1, np.mean(np.array(epoch_losses)), train_accuracy, validation_accuracy
+        print("Epoch: {} finished | Average loss: {} | "
+              "Av. Batch Train accuracy: {} | Validation accuracy: {}".format(
+              i + 1, round(np.mean(np.array(epoch_losses)), 2), round(train_accuracy, 2), round(validation_accuracy, 2)
         ))
 
         if validation_accuracy > best_val_acc:
