@@ -4,18 +4,34 @@ import sys
 import numpy as np
 
 from torchtext.data import Iterator
+from torch.optim import adam
+
 from LanguageIdentifier.model import Model, RecurrentModel
 from LanguageIdentifier.test import test
+from LanguageIdentifier.utils import save_model
 
 
-def train(model : Model, training_data : Iterator, testing_data : Iterator,
-          learning_rate : float, epochs : int):
+def train(optimizer: adam=None, model: Model=None,
+          training_data: Iterator=None, validation_data: Iterator=None, testing_data: Iterator=None,
+          learning_rate: float=1e-3, epochs: int=0, resume_state: dict=None, resume: str="", **kwargs):
+
+    # get command line arguments
+    cfg = locals().copy()
 
     # NLLLoss for using the log_softmax in the recurrent model
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     loss_function = torch.nn.NLLLoss()
 
-    for i in range(epochs):
+    if not resume:
+        best_train_acc, best_val_acc, best_test_acc = 0, 0, 0
+        start_epoch = 0
+    else:
+        start_epoch = resume_state['epoch']
+        training_acc = resume_state['train_acc']
+        validation_acc = resume_state['val_acc']
+        test_acc = resume_state['test_acc']
+
+    print("Training starts.")
+    for i in range(start_epoch, epochs):
         model.train()
         epoch_losses = []
         for j, batch in enumerate(iter(training_data)):
@@ -37,8 +53,28 @@ def train(model : Model, training_data : Iterator, testing_data : Iterator,
             optimizer.step()
 
         train_accuracy = test(model, training_data)
-        test_accuracy = test(model, testing_data)
-        print("Epoch: {} | Average loss: {} | Train accuracy: {} | Test accuracy: {}".format(
-              i + 1, np.mean(np.array(epoch_losses)), train_accuracy, test_accuracy
+        validation_accuracy = test(model, validation_data)
+
+        print("Epoch: {} | Average loss: {} | Train accuracy: {} | Validation accuracy: {}".format(
+              i + 1, np.mean(np.array(epoch_losses)), train_accuracy, validation_accuracy
         ))
 
+        if validation_accuracy > best_val_acc:
+            best_train_acc = train_accuracy
+            test_accuracy = test(model, testing_data)
+            best_test_acc = test_accuracy
+            best_val_acc = validation_accuracy
+            output_dir = cfg["output_dir"]
+            save_model(output_dir,
+                       {
+                           'epoch': i,
+                           'state_dict': model.state_dict(),
+                           'train_acc': train_accuracy,
+                           'val_acc': validation_accuracy,
+                           'test_acc': test_accuracy,
+                           'optimizer': optimizer.state_dict(),
+                       })
+
+    print("Done training.")
+    print("Best model: Train accuracy: {} | Validation accuracy: {} | Test accuracy: {}".format(
+          best_train_acc, best_val_acc, best_test_acc))

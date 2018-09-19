@@ -52,7 +52,6 @@ def data_reader(x_file: Iterable, y_file: Iterable, train : bool) -> dict:
 
     example = empty_example()
 
-
     for x, y in zip(x_file, y_file):
 
         x = x.strip()
@@ -68,15 +67,11 @@ def data_reader(x_file: Iterable, y_file: Iterable, train : bool) -> dict:
         for x in splitted_sentences:
             if len(x) == 0: continue
             example = empty_example()
+
             # replace all numbers with 0
             x = re.sub('[0-9]+', '0', x)
             paragraph = x.split()
             language = y
-
-            if train:
-                characters = list(x)[:250]
-            else:
-                characters = list(x)
 
             example['paragraph'] = [list(word.lower()) for word in paragraph]
             example['language'] = language
@@ -109,7 +104,7 @@ class WiLIDataset(Dataset):
                 train = True
 
             examples = []
-            for d in data_reader(f_par, f_lab, train, split_sentences):
+            for d in data_reader(f_par, f_lab, train):
                 for sentence in d:
                     examples.extend([Example.fromdict(sentence, fields)])
 
@@ -124,7 +119,8 @@ class WiLIDataset(Dataset):
         super(WiLIDataset, self).__init__(examples, fields, **kwargs)
 
 
-def load_data(training_text: str, training_labels: str, testing_text: str, testing_labels: str, **kwargs) -> (WiLIDataset, WiLIDataset):
+def load_data(training_text: str, training_labels: str, testing_text: str, testing_labels: str,
+              validation_text: str, validation_labels: str, **kwargs) -> (WiLIDataset, WiLIDataset):
 
     # load training and testing data
     fields = get_data_fields()
@@ -133,14 +129,16 @@ def load_data(training_text: str, training_labels: str, testing_text: str, testi
     _characters = fields['characters'][-1]
 
     training_data = WiLIDataset(training_text, training_labels, fields, True)
+    validation_data = WiLIDataset(validation_text, validation_labels, fields, False)
     testing_data = WiLIDataset(testing_text, testing_labels, fields, False)
 
     # TODO: add <unk>
     # build vocabularies
-    _paragraph.build_vocab(training_data, min_freq=10)  # TODO: make min_freq parameter
+    _paragraph.build_vocab(training_data, min_freq=1000)  # TODO: make min_freq parameter
     _language.build_vocab(training_data)
-    _characters.build_vocab(training_data, min_freq=10)  # TODO: fix for enormous char vocab size
-    return training_data, testing_data
+    _characters.build_vocab(training_data, min_freq=1000)  # TODO: fix for enormous char vocab size
+
+    return training_data, validation_data, testing_data
 
 
 if __name__ == "__main__":
