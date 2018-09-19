@@ -37,11 +37,15 @@ def train(optimizer: adam=None, model: Model=None,
         model.train()
         epoch_losses = []
         for j, batch in enumerate(iter(training_data)):
+
             optimizer.zero_grad()
 
             # We take the characters as input to the network, and the languages
             # as targets
-            characters = torch.autograd.Variable(batch.characters[0])
+
+            # use of Variable not necessary
+            # characters = torch.autograd.Variable(batch.characters[0])
+            characters = batch.characters[0]
             languages = batch.language
             if isinstance(model, RecurrentModel):
                 predictions = model.forward(characters, batch.characters[1])
@@ -54,10 +58,10 @@ def train(optimizer: adam=None, model: Model=None,
             loss.backward()
             optimizer.step()
 
-            if j % cfg["log_frequency"] == 0:
+            if (j + 1) % cfg["log_frequency"] == 0:
                 print("Logging: Epoch: {} | Iter: {} | Loss: {} ".format(i, j, loss.item()))
 
-            if j % cfg["eval_frequency"] == 0:
+            if (j + 1) % cfg["eval_frequency"] == 0:
                 train_accuracy = test(model, training_data)
                 validation_accuracy = test(model, validation_data)
                 print("Evaluation: Epoch: {} | Iter: {} | Loss: {} | Train accuracy: {}| Validation accuracy {} ".format(
