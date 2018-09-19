@@ -45,7 +45,7 @@ def empty_example() -> dict:
     return ex
 
 
-def data_reader(x_file: Iterable, y_file: Iterable, train : bool) -> dict:
+def data_reader(x_file: Iterable, y_file: Iterable, train: bool, split_sentences) -> dict:
     """
     Return examples as a dictionary.
     """
@@ -59,7 +59,7 @@ def data_reader(x_file: Iterable, y_file: Iterable, train : bool) -> dict:
 
         examples = []
 
-        if train:
+        if split_sentences:
             splitted_sentences = sent_tokenize(x)
         else:
             splitted_sentences = [x]
@@ -104,7 +104,7 @@ class WiLIDataset(Dataset):
                 train = True
 
             examples = []
-            for d in data_reader(f_par, f_lab, train):
+            for d in data_reader(f_par, f_lab, train, split_sentences):
                 for sentence in d:
                     examples.extend([Example.fromdict(sentence, fields)])
 
@@ -128,7 +128,7 @@ def load_data(training_text: str, training_labels: str, testing_text: str, testi
     _language = fields["language"][-1]
     _characters = fields['characters'][-1]
 
-    training_data = WiLIDataset(training_text, training_labels, fields, True)
+    training_data = WiLIDataset(training_text, training_labels, fields, False)
     validation_data = WiLIDataset(validation_text, validation_labels, fields, False)
     testing_data = WiLIDataset(testing_text, testing_labels, fields, False)
 
