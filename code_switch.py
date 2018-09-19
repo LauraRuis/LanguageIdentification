@@ -51,7 +51,9 @@ The files will be sliced in a way that both languages are still there.
 '''
 
 new_train_file = os.path.join(dir_path, 'all_train.txt')
+new_train_labels = os.path.join(dir_path, 'train_labels.txt')
 new_train_open = open(new_train_file, 'w', encoding='utf-8')
+train_label_open = open(new_train_labels, 'w', encoding='utf-8')
 
 # get all the names of the training files
 train_dir = os.path.join(dir_path, 'trn')
@@ -118,3 +120,4 @@ for file_id in train_file_list:
 
         # write line to new training file
         new_train_open.write(no_newline + '\n')
+        train_label_open.write(bytes_dictionary[file_id]['first_lang'] + ',' + bytes_dictionary[file_id]['second_lang'] + '\n')
