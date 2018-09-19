@@ -46,5 +46,5 @@ def calculate_char_freqs(data: Iterable, language_field: Field):
 
 
 def save_model(output_dir, state, filename='best_model.pth.tar'):
-    path = os.path.join(output_dir, filename)
+    path = os.path.join(output_dir, name + filename)
     torch.save(state, path)
