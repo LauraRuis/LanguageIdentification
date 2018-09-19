@@ -12,22 +12,32 @@ from LanguageIdentifier.utils import PAD_TOKEN
 
 
 def main():
-    torch.backends.cudnn.enabled=False
+    # torch.backends.cudnn.enabled=False
     ap = argparse.ArgumentParser(description="a Language Identification model")
     ap.add_argument('--mode', choices=['train', 'predict'], default='train')
     ap.add_argument('--output_dir', type=str, default='output')
 
+    # data arguments
     ap.add_argument('--training_text', type=str, default='Data/x_train_split.txt')
     ap.add_argument('--training_labels', type=str, default='Data/y_train_split.txt')
     ap.add_argument('--validation_text', type=str, default='Data/x_valid_split.txt')
     ap.add_argument('--validation_labels', type=str, default='Data/y_valid_split.txt')
     ap.add_argument('--testing_text', type=str, default='Data/x_test_split.txt')
     ap.add_argument('--testing_labels', type=str, default='Data/y_test_split.txt')
+
+    # data parameters
+    ap.add_argument('--max_chars', type=int, default=250)
+    ap.add_argument('--split_paragraphs', action='store_true', default=False)
+
+    # general model parameters
     ap.add_argument('--model_type', type=str, default='recurrent')
     ap.add_argument('--learning_rate', type=float, default=1e-3)
     ap.add_argument('--batch_size', type=int, default=100)
     ap.add_argument('--epochs', type=int, default=10)
+
+    # logging parameters
     ap.add_argument('--eval_frequency', type=int, default=100)
+    ap.add_argument('--log_frequency', type=int, default=100)
     ap.add_argument('--resume_from_file', type=str, default="")
 
     # Recurrent model settings
@@ -40,6 +50,7 @@ def main():
     print("Parameters:")
     for k, v in cfg.items():
         print("  %12s : %s" % (k, v))
+    print()
 
     # Check for GPU
     use_cuda = True if torch.cuda.is_available() else False
@@ -47,6 +58,7 @@ def main():
     
     # Load datasets and create iterators to use while training / testing
     training_data, validation_data, testing_data = load_data(**cfg)
+
     print("Data loaded.")
     if cfg['mode'] == 'train':
         training_iterator = Iterator(training_data, cfg['batch_size'], train=True,
@@ -55,6 +67,11 @@ def main():
                                        device=device, repeat=False)
     testing_iterator = Iterator(testing_data, cfg['batch_size'], train=False,
                                 sort_within_batch=True, device=device, repeat=False)
+
+    print("Loaded %d training samples" % len(training_data))
+    print("Loaded %d validation samples" % len(validation_data))
+    print("Loaded %d test samples" % len(testing_data))
+    print()
 
     if cfg['mode'] == 'train':
 
@@ -74,6 +91,13 @@ def main():
                             n_classes=n_classes)
         else:
             raise NotImplementedError()
+
+        print("Vocab. size word: ", len(training_data.fields['paragraph'].vocab))
+        print("First 10 words: ", " ".join(training_data.fields['paragraph'].vocab.itos[:10]))
+        print("Vocab. size chars: ", len(training_data.fields['characters'].vocab))
+        print("First 10 chars: ", " ".join(training_data.fields['characters'].vocab.itos[:10]))
+        print("Number of languages: ", n_classes)
+        print()
 
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg["learning_rate"])
 

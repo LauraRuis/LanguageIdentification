@@ -121,7 +121,8 @@ class WiLIDataset(Dataset):
 
 
 def load_data(training_text: str, training_labels: str, testing_text: str, testing_labels: str,
-              validation_text: str, validation_labels: str, max_chars: int=1000, **kwargs) -> (WiLIDataset, WiLIDataset):
+              validation_text: str, validation_labels: str, max_chars: int=1000,
+              split_paragraphs: bool=False, **kwargs) -> (WiLIDataset, WiLIDataset):
 
     # load training and testing data
     fields = get_data_fields()
@@ -129,7 +130,7 @@ def load_data(training_text: str, training_labels: str, testing_text: str, testi
     _language = fields["language"][-1]
     _characters = fields['characters'][-1]
 
-    training_data = WiLIDataset(training_text, training_labels, fields, False, max_chars)
+    training_data = WiLIDataset(training_text, training_labels, fields, split_paragraphs, max_chars)
     validation_data = WiLIDataset(validation_text, validation_labels, fields, False)
     testing_data = WiLIDataset(testing_text, testing_labels, fields, False)
 

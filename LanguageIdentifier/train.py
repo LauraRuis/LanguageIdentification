@@ -13,7 +13,9 @@ from LanguageIdentifier.utils import save_model
 
 def train(optimizer: adam=None, model: Model=None,
           training_data: Iterator=None, validation_data: Iterator=None, testing_data: Iterator=None,
-          learning_rate: float=1e-3, epochs: int=0, resume_state: dict=None, resume: str="", **kwargs):
+          learning_rate: float=1e-3, epochs: int=0, resume_state: dict=None, resume: str="",
+          log_frequency: int=0, eval_frequency: int=0,
+          **kwargs):
 
     # get command line arguments
     cfg = locals().copy()
@@ -52,10 +54,19 @@ def train(optimizer: adam=None, model: Model=None,
             loss.backward()
             optimizer.step()
 
+            if j % cfg["log_frequency"] == 0:
+                print("Logging: Epoch: {} | Iter: {} | Loss: {} ".format(i, j, loss.item()))
+
+            if j % cfg["eval_frequency"] == 0:
+                train_accuracy = test(model, training_data)
+                validation_accuracy = test(model, validation_data)
+                print("Evaluation: Epoch: {} | Iter: {} | Loss: {} | Train accuracy: {}| Validation accuracy {} ".format(
+                    i, j, loss.item(), train_accuracy, validation_accuracy))
+
         train_accuracy = test(model, training_data)
         validation_accuracy = test(model, validation_data)
 
-        print("Epoch: {} | Average loss: {} | Train accuracy: {} | Validation accuracy: {}".format(
+        print("Epoch: {} finished | Average loss: {} | Train accuracy: {} | Validation accuracy: {}".format(
               i + 1, np.mean(np.array(epoch_losses)), train_accuracy, validation_accuracy
         ))
 
