@@ -2,6 +2,7 @@ from torchtext.data import Example
 from torchtext.data import Field
 from typing import Iterable
 import os
+import torch
 
 PAD_TOKEN = '<pad>'
 START_TOKEN = '<start>'
@@ -42,3 +43,8 @@ def calculate_char_freqs(data: Iterable, language_field: Field):
     with open("char_freqs_temp.txt", "w") as infile:
         infile.writelines(info)
     print("Wrote to: ", os.getcwd() + "/char_freqs_temp.txt")
+
+
+def save_model(output_dir, state, filename='best_model.pth.tar'):
+    path = os.path.join(output_dir, name + filename)
+    torch.save(state, path)
