@@ -22,6 +22,9 @@ def train(optimizer: adam=None, model: Model=None,
     # get command line arguments
     cfg = locals().copy()
 
+    if not os.path.isdir(output_dir):
+        os.mkdir(output_dir)
+
     # NLLLoss for using the log_softmax in the recurrent model
     loss_function = torch.nn.NLLLoss()
 
