@@ -33,6 +33,7 @@ def train(optimizer: adam=None, model: Model=None,
         training_acc = resume_state['train_acc']
         validation_acc = resume_state['val_acc']
         test_acc = resume_state['test_acc']
+        best_val_acc = validation_acc
 
     print(datetime.datetime.now(), " Training starts.")
     batch_accuracies, epoch_accuracies = [], []
@@ -81,6 +82,22 @@ def train(optimizer: adam=None, model: Model=None,
                 print(datetime.datetime.now(), " Evaluation: Epoch: {} | Iter: {} | Loss: {} | "
                       "Av. Batch Train accuracy: {}| Validation accuracy {} ".format(
                     i, j, round(loss.item(), 4), round(train_accuracy, 2), round(validation_accuracy, 2)))
+                if validation_accuracy > best_val_acc:
+                    best_train_acc = train_accuracy
+                    test_accuracy = test(model, testing_data)
+                    best_test_acc = test_accuracy
+                    best_val_acc = validation_accuracy
+                    output_dir = cfg["output_dir"]
+                    save_model(output_dir,
+                               {
+                                   'epoch': i,
+                                   'state_dict': model.state_dict(),
+                                   'train_acc': train_accuracy,
+                                   'val_acc': validation_accuracy,
+                                   'test_acc': test_accuracy,
+                                   'optimizer': optimizer.state_dict(),
+                               },
+                               filename=cfg["model_type"] + "_best_model.pth.tar")
 
         train_accuracy = np.array(epoch_accuracies).mean()
         epoch_accuracies = []
@@ -90,23 +107,6 @@ def train(optimizer: adam=None, model: Model=None,
               "Av. Batch Train accuracy: {} | Validation accuracy: {}".format(
               i + 1, round(np.mean(np.array(epoch_losses)), 2), round(train_accuracy, 2), round(validation_accuracy, 2)
         ))
-
-        if validation_accuracy > best_val_acc:
-            best_train_acc = train_accuracy
-            test_accuracy = test(model, testing_data)
-            best_test_acc = test_accuracy
-            best_val_acc = validation_accuracy
-            output_dir = cfg["output_dir"]
-            save_model(output_dir,
-                       {
-                           'epoch': i,
-                           'state_dict': model.state_dict(),
-                           'train_acc': train_accuracy,
-                           'val_acc': validation_accuracy,
-                           'test_acc': test_accuracy,
-                           'optimizer': optimizer.state_dict(),
-                       },
-                       filename=cfg["model_type"] + "_best_model.pth.tar")
 
     print(datetime.datetime.now(), " Done training.")
     print("Best model: Train accuracy: {} | Validation accuracy: {} | Test accuracy: {}".format(

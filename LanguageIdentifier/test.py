@@ -13,7 +13,7 @@ def test(model : Model, testing_data : Iterator) -> float:
     batch_accuracies = []
 
     for j, batch in enumerate(iter(testing_data)):
-        characters = torch.autograd.Variable(batch.characters[0])
+        characters = batch.characters[0]
         languages = batch.language
         if isinstance(model, RecurrentModel):
             predictions = model.forward(characters, batch.characters[1])

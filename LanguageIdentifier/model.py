@@ -39,8 +39,9 @@ class GRUIdentifier(RecurrentModel):
             return h_0
 
     def forward(self, sentence : Variable, lengths : torch.Tensor) -> torch.Tensor:
+
         batch_size = sentence.shape[0]
-        x = self.embeddings(torch.transpose(sentence, 0, 1))
+        x = self.embeddings(torch.transpose(sentence, 0, 1))  # time, batch, dim
         packed_x = pack_padded_sequence(x, lengths)
 
         # Recurrent part
@@ -49,7 +50,20 @@ class GRUIdentifier(RecurrentModel):
         recurrent_out, _ = pad_packed_sequence(recurrent_out)
 
         # Classification
-        y = self.hidden2label(recurrent_out[-1])
+
+        # FIXME: take final recurrent state or..
+        recurrent_out = torch.transpose(recurrent_out, 1, 0)  # batch, time, dim
+        dim = recurrent_out.size(2)
+        indices = lengths.view(-1, 1).unsqueeze(2).repeat(1, 1, dim) - 1
+        indices = indices.cuda() if torch.cuda.is_available() else indices
+        final_states = torch.squeeze(torch.gather(recurrent_out, 1, indices), dim=1)
+
+        # FIXME: take hidden state
+        y = self.hidden2label(hidden_out.squeeze())
+        y = self.hidden2label(final_states)
+
+        if len(y.shape) == 1:
+            y = y.unsqueeze(0)
         log_probs = F.log_softmax(y, 1)
         return log_probs
 
