@@ -21,10 +21,8 @@ def get_data_fields() -> dict:
         batch_first=True, init_token=None, eos_token=None, pad_token=None, unk_token=None)
     characters = Field(include_lengths=True, batch_first=True, init_token=None,
                        eos_token=END_TOKEN, pad_token=PAD_TOKEN)
-    nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
-                          init_token=START_TOKEN, eos_token=END_TOKEN)
-
-    paragraph = NestedField(nesting_field, pad_token=PAD_TOKEN, include_lengths=True)
+    paragraph = Field(include_lengths=True, batch_first=True, init_token=None,
+                      eos_token=END_TOKEN, pad_token=PAD_TOKEN)
 
     fields = {
         'characters': ('characters', characters),
@@ -73,7 +71,7 @@ def data_reader(x_file: Iterable, y_file: Iterable, train: bool, split_sentences
             paragraph = x.split()
             language = y
 
-            example['paragraph'] = [list(word.lower()) for word in paragraph]
+            example['paragraph'] = [word.lower() for word in paragraph]
             example['language'] = language
             example['characters'] = list(x) if not train else list(x)[:max_chars]
 

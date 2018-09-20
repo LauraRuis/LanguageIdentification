@@ -75,18 +75,18 @@ def main():
 
     if cfg['mode'] == 'train':
 
+        # Calculate args needed for recurrent model, move these lines if used
+        # by other models / pieces of code
+        char_vocab_size = len(training_data.fields['characters'].vocab)
+        n_classes = len(training_data.fields['language'].vocab)
+
         # Initialise a new model
         if cfg['model_type'] == 'recurrent':
-            # Calculate args needed for recurrent model, move these lines if used
-            # by other models / pieces of code
-            vocab_size = len(training_data.fields['paragraph'].vocab)
-            n_classes = len(training_data.fields['language'].vocab)
-            model = GRUIdentifier(vocab_size, n_classes, **cfg)
+
+            model = GRUIdentifier(char_vocab_size, n_classes, **cfg)
         elif cfg['model_type'] == 'character_cnn':
-            vocab_size = len(training_data.fields['characters'].vocab)
-            n_classes = len(training_data.fields['language'].vocab)
             padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
-            model = CharCNN(vocab_size, padding_idx,
+            model = CharCNN(char_vocab_size, padding_idx,
                             emb_dim=cfg["embedding_dim"], num_filters=30, window_size=3, dropout_p=0.33,
                             n_classes=n_classes)
         else:
