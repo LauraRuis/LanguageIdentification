@@ -3,6 +3,7 @@ import os
 import sys
 import numpy as np
 import math
+import datetime
 
 from torchtext.data import Iterator
 from torch.optim import adam
@@ -15,7 +16,7 @@ from LanguageIdentifier.utils import save_model
 def train(optimizer: adam=None, model: Model=None,
           training_data: Iterator=None, validation_data: Iterator=None, testing_data: Iterator=None,
           learning_rate: float=1e-3, epochs: int=0, resume_state: dict=None, resume: str="",
-          log_frequency: int=0, eval_frequency: int=0, model_type="",
+          log_frequency: int=0, eval_frequency: int=0, model_type="", output_dir="",
           **kwargs):
 
     # get command line arguments
@@ -33,7 +34,7 @@ def train(optimizer: adam=None, model: Model=None,
         validation_acc = resume_state['val_acc']
         test_acc = resume_state['test_acc']
 
-    print("Training starts.")
+    print(datetime.datetime.now(), " Training starts.")
     batch_accuracies, epoch_accuracies = [], []
     for i in range(start_epoch, epochs):
         model.train()
@@ -70,14 +71,14 @@ def train(optimizer: adam=None, model: Model=None,
             optimizer.step()
 
             if (j + 1) % cfg["log_frequency"] == 0:
-                print("Logging: Epoch: {} | Iter: {} | Loss: {} | Batch accuracy: {}".format(
+                print(datetime.datetime.now(), " Logging: Epoch: {} | Iter: {} | Loss: {} | Batch accuracy: {}".format(
                     i, j, round(loss.item(), 4), round(batch_accuracies[-1], 3)))
 
             if (j + 1) % cfg["eval_frequency"] == 0:
                 train_accuracy = np.array(batch_accuracies).mean()
                 batch_accuracies = []
                 validation_accuracy = test(model, validation_data)
-                print("Evaluation: Epoch: {} | Iter: {} | Loss: {} | "
+                print(datetime.datetime.now(), " Evaluation: Epoch: {} | Iter: {} | Loss: {} | "
                       "Av. Batch Train accuracy: {}| Validation accuracy {} ".format(
                     i, j, round(loss.item(), 4), round(train_accuracy, 2), round(validation_accuracy, 2)))
 
@@ -85,7 +86,7 @@ def train(optimizer: adam=None, model: Model=None,
         epoch_accuracies = []
         validation_accuracy = test(model, validation_data)
 
-        print("Epoch: {} finished | Average loss: {} | "
+        print(datetime.datetime.now(), " Epoch: {} finished | Average loss: {} | "
               "Av. Batch Train accuracy: {} | Validation accuracy: {}".format(
               i + 1, round(np.mean(np.array(epoch_losses)), 2), round(train_accuracy, 2), round(validation_accuracy, 2)
         ))
@@ -107,6 +108,6 @@ def train(optimizer: adam=None, model: Model=None,
                        },
                        filename=cfg["model_type"] + "_best_model.pth.tar")
 
-    print("Done training.")
+    print(datetime.datetime.now(), " Done training.")
     print("Best model: Train accuracy: {} | Validation accuracy: {} | Test accuracy: {}".format(
           best_train_acc, best_val_acc, best_test_acc))
