@@ -5,6 +5,7 @@ import torch
 from torchtext.data import Iterator
 import os
 from torch.optim.lr_scheduler import LambdaLR
+import numpy as np
 
 from LanguageIdentifier.train import train
 from LanguageIdentifier.data import load_data
@@ -113,6 +114,14 @@ def main():
             scheduler = LambdaLR(par_optimizer, lr_lambda=lambda t: 0.5**(t/3))
         else:
             raise NotImplementedError()
+
+        print("Trainable Parameters")
+        n_params = sum([np.prod(par.size()) for par in model.parameters() if par.requires_grad])
+        print("Number of parameters: {}".format(n_params))
+        for name, par in model.named_parameters():
+            if par.requires_grad:
+                print("{} : {}".format(name, list(par.size())))
+        print()
 
         if cfg["resume_from_file"]:
 
