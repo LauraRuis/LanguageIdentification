@@ -113,4 +113,4 @@ def train(optimizer: adam=None, model: Model=None,
 
     print(datetime.datetime.now(), " Done training.")
     print("Best model: Train accuracy: {} | Validation accuracy: {} | Test accuracy: {}".format(
-          best_train_acc, best_val_acc, best_test_acc))
+          round(best_train_acc, 2), round(best_val_acc, 2), round(best_test_acc, 2)))

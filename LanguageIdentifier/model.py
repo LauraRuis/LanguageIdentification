@@ -60,6 +60,7 @@ class GRUIdentifier(RecurrentModel):
 
         # FIXME: take hidden state
         y = self.hidden2label(hidden_out.squeeze())
+
         y = self.hidden2label(final_states)
 
         if len(y.shape) == 1:
@@ -97,6 +98,7 @@ class CharModel(nn.Module):
 
       # embed characters
       embedded = self.embeddings(sentence)
+      embedded = self.char_emb_dropout(embedded)
 
       # character model
       output = self.char_model(embedded)
@@ -111,14 +113,17 @@ class CharCNN(CharModel):
     super(CharCNN, self).__init__(n_chars, padding_idx, emb_dim=emb_dim, hidden_size=400, output_dim=100,
                                   dropout_p=dropout_p, bi=False)
 
-    self.conv = nn.Conv1d(emb_dim, num_filters, window_size, padding=window_size - 1)
-    self.xavier_uniform()
+    self.conv1 = nn.Conv1d(emb_dim, num_filters, window_size, padding=window_size - 1)
+    self.conv2 = nn.Conv1d(num_filters, num_filters, window_size, padding=window_size - 1)
+    self.xavier_uniform(name="conv1")
+    self.xavier_uniform(name="conv2")
     self.hidden2label = nn.Linear(num_filters, n_classes)
 
-  def xavier_uniform(self, gain=1.):
+  def xavier_uniform(self, name="", gain=1.):
 
     # default pytorch initialization
-    for name, weight in self.conv.named_parameters():
+    pars = getattr(self, name)
+    for name, weight in pars.named_parameters():
       if len(weight.size()) > 1:
           nn.init.xavier_uniform_(weight.data, gain=gain)
       elif "bias" in name:
@@ -127,7 +132,8 @@ class CharCNN(CharModel):
   def char_model(self, embedded=None):
 
     embedded = torch.transpose(embedded, 1, 2)  # (bsz, dim, time)
-    chars_conv = self.conv(embedded)
+    chars_conv = self.conv1(embedded)
+    chars_conv = self.conv2(chars_conv)
     chars = F.max_pool1d(chars_conv, kernel_size=chars_conv.size(2)).squeeze(2)
     labels = self.hidden2label(chars)
     log_probs = F.log_softmax(labels, 1)
