@@ -4,11 +4,13 @@ import argparse
 import torch
 from torchtext.data import Iterator
 import os
+from torch.optim.lr_scheduler import LambdaLR
 
 from LanguageIdentifier.train import train
 from LanguageIdentifier.data import load_data
 from LanguageIdentifier.model import GRUIdentifier, CharCNN
 from LanguageIdentifier.utils import PAD_TOKEN
+
 
 
 def main():
@@ -34,6 +36,7 @@ def main():
     ap.add_argument('--learning_rate', type=float, default=1e-3)
     ap.add_argument('--batch_size', type=int, default=100)
     ap.add_argument('--epochs', type=int, default=10)
+    ap.add_argument('--optimizer', type=str, default='adam')
 
     # logging parameters
     ap.add_argument('--eval_frequency', type=int, default=100)
@@ -87,7 +90,7 @@ def main():
         elif cfg['model_type'] == 'character_cnn':
             padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
             model = CharCNN(char_vocab_size, padding_idx,
-                            emb_dim=cfg["embedding_dim"], num_filters=30, window_size=3, dropout_p=0.33,
+                            emb_dim=cfg["embedding_dim"], num_filters=30, window_size=3, dropout_p=0.5,
                             n_classes=n_classes)
         else:
             raise NotImplementedError()
@@ -99,7 +102,13 @@ def main():
         print("Number of languages: ", n_classes)
         print()
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=cfg["learning_rate"])
+        if cfg["optimizer"] == "adam":
+            par_optimizer = torch.optim.Adam(model.parameters(), lr=cfg["learning_rate"])
+        elif cfg["optimizer"] == "sgd":
+            par_optimizer = torch.optim.SGD(model.parameters(), lr=cfg["learning_rate"], momentum=0.9)
+            scheduler = LambdaLR(par_optimizer, lr_lambda=lambda t: 0.5**(t/3))
+        else:
+            raise NotImplementedError()
 
         if cfg["resume_from_file"]:
 
@@ -109,7 +118,7 @@ def main():
                print("Loading model from file '{}'".format(file))
                resume_state = torch.load(file)
                model.load_state_dict(resume_state['state_dict'])
-               optimizer.load_state_dict(resume_state['optimizer'])
+               par_optimizer.load_state_dict(resume_state['optimizer'])
                print("Loaded from file '{}' (epoch {})"
                      .format(file, resume_state['epoch']))
            else:
@@ -122,7 +131,7 @@ def main():
 
         train(model=model,
               training_data=training_iterator, validation_data=validation_iterator, testing_data=testing_iterator,
-              optimizer=optimizer,
+              par_optimizer=par_optimizer, scheduler=scheduler,
               resume_state=resume_state, **cfg)
 
     elif cfg['mode'] == 'test':  # Let's separate test from inference mode

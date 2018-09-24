@@ -20,6 +20,7 @@ class GRUIdentifier(RecurrentModel):
     def __init__(self, vocab_size : int, n_classes : int, embedding_dim : int,
                  hidden_dim : int, bidirectional : bool, **kwargs):
         super().__init__()
+
         self.hidden_dim = hidden_dim
         self.bidirectional = bidirectional
         self.embeddings = nn.Embedding(vocab_size, embedding_dim)
@@ -113,11 +114,42 @@ class CharCNN(CharModel):
     super(CharCNN, self).__init__(n_chars, padding_idx, emb_dim=emb_dim, hidden_size=400, output_dim=100,
                                   dropout_p=dropout_p, bi=False)
 
-    self.conv1 = nn.Conv1d(emb_dim, num_filters, window_size, padding=window_size - 1)
-    self.conv2 = nn.Conv1d(num_filters, num_filters, window_size, padding=window_size - 1)
-    self.xavier_uniform(name="conv1")
-    self.xavier_uniform(name="conv2")
-    self.hidden2label = nn.Linear(num_filters, n_classes)
+    # in_channels, out_channels, kernel_size, stride, padding
+    conv_stride = 1
+    max_pool_kernel_size = 3
+    max_pool_stride = 3
+    padding = 1
+    conv_spec_1 = dict(in_channels=emb_dim, out_channels=256, kernel_size=7, padding=3)
+    conv_spec_2 = dict(in_channels=256, out_channels=256, kernel_size=7, padding=3)
+    conv_spec_3 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=1)
+    conv_spec_4 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=1)
+    conv_spec_5 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=1)
+    conv_spec_6 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=1)
+    network = [conv_spec_1, 'MaxPool', conv_spec_2, 'MaxPool', conv_spec_3,
+               conv_spec_4, conv_spec_5, conv_spec_6]
+
+    layers = []
+    for layer in network:
+
+        if layer == 'MaxPool':
+            layers.append(nn.MaxPool1d(kernel_size=max_pool_kernel_size, stride=max_pool_stride, padding=padding))
+        else:
+            conv = nn.Conv1d(layer['in_channels'], layer['out_channels'],
+                             kernel_size=layer['kernel_size'], stride=conv_stride, padding=layer['padding'])
+            relu = nn.ReLU(inplace=True)
+            layers.extend([conv, relu])
+
+    self.conv1 = nn.Conv1d(emb_dim, 256, kernel_size=7, stride=conv_stride, padding=3)
+    self.mp1 = nn.MaxPool2d(kernel_size=max_pool_kernel_size, stride=max_pool_stride, padding=padding)
+    self.conv2 = nn.Conv1d(256, 256, kernel_size=7, stride=conv_stride, padding=3)
+
+    self.layers = nn.Sequential(*layers)
+    self.fc1 = nn.Linear(256, 1024)
+    self.fc2 = nn.Linear(1024, 1024)
+    self.classifier = nn.Linear(1024, n_classes)
+
+    # self.xavier_uniform(name="conv1")
+    # self.xavier_uniform(name="conv2")
 
   def xavier_uniform(self, name="", gain=1.):
 
@@ -132,10 +164,13 @@ class CharCNN(CharModel):
   def char_model(self, embedded=None):
 
     embedded = torch.transpose(embedded, 1, 2)  # (bsz, dim, time)
-    chars_conv = self.conv1(embedded)
-    chars_conv = self.conv2(chars_conv)
-    chars = F.max_pool1d(chars_conv, kernel_size=chars_conv.size(2)).squeeze(2)
-    labels = self.hidden2label(chars)
+    chars_conv = self.layers(embedded)
+    chars_conv = F.max_pool1d(chars_conv, kernel_size=chars_conv.size(2)).squeeze(2)
+    output = self.fc1(chars_conv)
+    output = self.char_emb_dropout(output)
+    output = self.fc2(output)
+    output = self.char_emb_dropout(output)
+    labels = self.classifier(output)
     log_probs = F.log_softmax(labels, 1)
 
     return log_probs

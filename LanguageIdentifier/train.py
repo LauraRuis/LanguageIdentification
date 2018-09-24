@@ -13,10 +13,10 @@ from LanguageIdentifier.test import test
 from LanguageIdentifier.utils import save_model
 
 
-def train(optimizer: adam=None, model: Model=None,
+def train(par_optimizer: adam=None, model: Model=None,
           training_data: Iterator=None, validation_data: Iterator=None, testing_data: Iterator=None,
           learning_rate: float=1e-3, epochs: int=0, resume_state: dict=None, resume: str="",
-          log_frequency: int=0, eval_frequency: int=0, model_type="", output_dir="",
+          log_frequency: int=0, eval_frequency: int=0, model_type="", output_dir="", scheduler=None,
           **kwargs):
 
     # get command line arguments
@@ -41,11 +41,15 @@ def train(optimizer: adam=None, model: Model=None,
     print(datetime.datetime.now(), " Training starts.")
     batch_accuracies, epoch_accuracies = [], []
     for i in range(start_epoch, epochs):
+
+        if not scheduler:
+            scheduler.step()
+
         model.train()
         epoch_losses = []
         for j, batch in enumerate(iter(training_data)):
 
-            optimizer.zero_grad()
+            par_optimizer.zero_grad()
 
             # We take the characters as input to the network, and the languages
             # as targets
@@ -72,11 +76,15 @@ def train(optimizer: adam=None, model: Model=None,
 
             # Update the weights
             loss.backward()
-            optimizer.step()
+            par_optimizer.step()
 
             if (j + 1) % cfg["log_frequency"] == 0:
-                print(datetime.datetime.now(), " Logging: Epoch: {} | Iter: {} | Loss: {} | Batch accuracy: {}".format(
-                    i, j, round(loss.item(), 4), round(batch_accuracies[-1], 3)))
+                if scheduler:
+                    lr = scheduler.get_lr()[0]
+                else:
+                    lr = cfg["learning_rate"]
+                print(datetime.datetime.now(), " Logging: Epoch: {} | Iter: {} | Loss: {} | Batch accuracy: {} | LR: {}".format(
+                    i, j, round(loss.item(), 4), round(batch_accuracies[-1], 3), lr))
 
             if (j + 1) % cfg["eval_frequency"] == 0:
                 train_accuracy = np.array(batch_accuracies).mean()
@@ -98,7 +106,7 @@ def train(optimizer: adam=None, model: Model=None,
                                    'train_acc': train_accuracy,
                                    'val_acc': validation_accuracy,
                                    'test_acc': test_accuracy,
-                                   'optimizer': optimizer.state_dict(),
+                                   'optimizer': par_optimizer.state_dict(),
                                },
                                filename=cfg["model_type"] + "_best_model.pth.tar")
 
