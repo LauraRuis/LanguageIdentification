@@ -107,9 +107,42 @@ class CharModel(nn.Module):
       return output
 
 
+class SmallCNN(CharModel):
+
+    def __init__(self, n_chars, padding_idx, emb_dim, num_filters, window_size, dropout_p, n_classes):
+        super(SmallCNN, self).__init__(n_chars, padding_idx, emb_dim=emb_dim, hidden_size=400, output_dim=100,
+                                      dropout_p=dropout_p, bi=False)
+
+        self.conv1 = nn.Conv1d(emb_dim, num_filters, window_size, padding=window_size - 1)
+        self.conv2 = nn.Conv1d(num_filters, num_filters, window_size, padding=window_size - 1)
+        self.xavier_uniform(name="conv1")
+        self.xavier_uniform(name="conv2")
+        self.hidden2label = nn.Linear(num_filters, n_classes)
+
+    def xavier_uniform(self, name="", gain=1.):
+
+        # default pytorch initialization
+        pars = getattr(self, name)
+        for name, weight in pars.named_parameters():
+            if len(weight.size()) > 1:
+                nn.init.xavier_uniform_(weight.data, gain=gain)
+            elif "bias" in name:
+                weight.data.fill_(0.)
+
+    def char_model(self, embedded=None):
+        embedded = torch.transpose(embedded, 1, 2)  # (bsz, dim, time)
+        chars_conv = self.conv1(embedded)
+        chars_conv = self.conv2(chars_conv)
+        chars = F.max_pool1d(chars_conv, kernel_size=chars_conv.size(2)).squeeze(2)
+        labels = self.hidden2label(chars)
+        log_probs = F.log_softmax(labels, 1)
+
+        return log_probs
+
+
 class CharCNN(CharModel):
 
-  def __init__(self, n_chars, padding_idx, emb_dim, num_filters, window_size, dropout_p, n_classes):
+  def __init__(self, n_chars, padding_idx, emb_dim, dropout_p, n_classes):
 
     super(CharCNN, self).__init__(n_chars, padding_idx, emb_dim=emb_dim, hidden_size=400, output_dim=100,
                                   dropout_p=dropout_p, bi=False)
@@ -139,23 +172,17 @@ class CharCNN(CharModel):
             relu = nn.ReLU(inplace=True)
             layers.extend([conv, relu])
 
-    self.conv1 = nn.Conv1d(emb_dim, 256, kernel_size=7, stride=conv_stride, padding=3)
-    self.mp1 = nn.MaxPool2d(kernel_size=max_pool_kernel_size, stride=max_pool_stride, padding=padding)
-    self.conv2 = nn.Conv1d(256, 256, kernel_size=7, stride=conv_stride, padding=3)
-
     self.layers = nn.Sequential(*layers)
     self.fc1 = nn.Linear(256, 1024)
     self.fc2 = nn.Linear(1024, 1024)
     self.classifier = nn.Linear(1024, n_classes)
 
-    # self.xavier_uniform(name="conv1")
-    # self.xavier_uniform(name="conv2")
+    self.xavier_uniform()
 
-  def xavier_uniform(self, name="", gain=1.):
+  def xavier_uniform(self, gain=1.):
 
     # default pytorch initialization
-    pars = getattr(self, name)
-    for name, weight in pars.named_parameters():
+    for name, weight in self.named_parameters():
       if len(weight.size()) > 1:
           nn.init.xavier_uniform_(weight.data, gain=gain)
       elif "bias" in name:

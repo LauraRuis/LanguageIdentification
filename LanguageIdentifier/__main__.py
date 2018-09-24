@@ -8,7 +8,7 @@ from torch.optim.lr_scheduler import LambdaLR
 
 from LanguageIdentifier.train import train
 from LanguageIdentifier.data import load_data
-from LanguageIdentifier.model import GRUIdentifier, CharCNN
+from LanguageIdentifier.model import GRUIdentifier, CharCNN, SmallCNN
 from LanguageIdentifier.utils import PAD_TOKEN
 
 
@@ -87,11 +87,14 @@ def main():
         if cfg['model_type'] == 'recurrent':
 
             model = GRUIdentifier(char_vocab_size, n_classes, **cfg)
-        elif cfg['model_type'] == 'character_cnn':
+        elif cfg['model_type'] == 'small_cnn':
             padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
-            model = CharCNN(char_vocab_size, padding_idx,
-                            emb_dim=cfg["embedding_dim"], num_filters=30, window_size=3, dropout_p=0.5,
-                            n_classes=n_classes)
+            model = SmallCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"], dropout_p=0.33, num_filters=30,
+                             window_size=3, n_classes=n_classes)
+        elif cfg['model_type'] == 'large_cnn':
+            padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
+            model = CharCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"],
+                            dropout_p=0.5, n_classes=n_classes)
         else:
             raise NotImplementedError()
 
@@ -104,6 +107,7 @@ def main():
 
         if cfg["optimizer"] == "adam":
             par_optimizer = torch.optim.Adam(model.parameters(), lr=cfg["learning_rate"])
+            scheduler = None
         elif cfg["optimizer"] == "sgd":
             par_optimizer = torch.optim.SGD(model.parameters(), lr=cfg["learning_rate"], momentum=0.9)
             scheduler = LambdaLR(par_optimizer, lr_lambda=lambda t: 0.5**(t/3))
