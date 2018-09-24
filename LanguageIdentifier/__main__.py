@@ -31,6 +31,7 @@ def main():
     # data parameters
     ap.add_argument('--max_chars', type=int, default=250)
     ap.add_argument('--split_paragraphs', action='store_true', default=False)
+    ap.add_argument('--fix_lengths', action='store_true', default=False)
 
     # general model parameters
     ap.add_argument('--model_type', type=str, default='recurrent')
@@ -51,9 +52,13 @@ def main():
 
     cfg = vars(ap.parse_args())
 
+    if cfg["model_type"] == "large_cnn":
+        assert cfg["fix_lengths"], "Please set flage fix_lengths to true when using large cnn " \
+                                      "(fixed length input necessary)"
     print("Parameters:")
     for k, v in cfg.items():
         print("  %12s : %s" % (k, v))
+
     print()
 
     # Check for GPU
@@ -95,7 +100,7 @@ def main():
         elif cfg['model_type'] == 'large_cnn':
             padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
             model = CharCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"],
-                            dropout_p=0.5, n_classes=n_classes)
+                            dropout_p=0.5, n_classes=n_classes, length=cfg['max_chars'],)
         else:
             raise NotImplementedError()
 
@@ -111,7 +116,7 @@ def main():
             scheduler = None
         elif cfg["optimizer"] == "sgd":
             par_optimizer = torch.optim.SGD(model.parameters(), lr=cfg["learning_rate"], momentum=0.9)
-            scheduler = LambdaLR(par_optimizer, lr_lambda=lambda t: 0.5**(t/3))
+            scheduler = LambdaLR(par_optimizer, lr_lambda=lambda t: 0.5**(t / 3))
         else:
             raise NotImplementedError()
 
