@@ -52,10 +52,7 @@ def train(par_optimizer: adam=None, model: Model=None,
             par_optimizer.zero_grad()
 
             # We take the characters as input to the network, and the languages
-            # as targets
-
-            # use of Variable not necessary
-            # characters = torch.autograd.Variable(batch.characters[0])
+            # as target
             characters = batch.characters[0]
             languages = batch.language
             batch_size = characters.shape[0]
@@ -83,8 +80,10 @@ def train(par_optimizer: adam=None, model: Model=None,
                     lr = scheduler.get_lr()[0]
                 else:
                     lr = cfg["learning_rate"]
-                print(datetime.datetime.now(), " Logging: Epoch: {} | Iter: {} | Loss: {} | Batch accuracy: {} | LR: {}".format(
-                    i, j, round(loss.item(), 4), round(batch_accuracies[-1], 3), round(lr, 3)))
+                print(datetime.datetime.now(), "Logging: Epoch: {} | Iter: {} | Loss: {} | Batch accuracy: {} "
+                                               "| LR: {}".format(
+                    i, j, round(loss.item(), 4), round(batch_accuracies[-1], 3), round(lr, 3))
+                      )
 
             if (j + 1) % cfg["eval_frequency"] == 0:
                 train_accuracy = np.array(batch_accuracies).mean()

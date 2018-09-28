@@ -13,7 +13,6 @@ from LanguageIdentifier.model import GRUIdentifier, CharCNN, SmallCNN
 from LanguageIdentifier.utils import PAD_TOKEN
 
 
-
 def main():
     # torch.backends.cudnn.enabled=False
     ap = argparse.ArgumentParser(description="a Language Identification model")
@@ -101,6 +100,9 @@ def main():
             padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
             model = CharCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"],
                             dropout_p=0.5, n_classes=n_classes, length=cfg['max_chars'],)
+        elif cfg['model_type'] == 'word_char':
+            padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
+            raise NotImplementedError()
         else:
             raise NotImplementedError()
 

@@ -20,10 +20,17 @@ def get_data_fields(fixed_lengths: int) -> dict:
     """
     language = Field(
         batch_first=True, init_token=None, eos_token=None, pad_token=None, unk_token=None)
+
     characters = Field(include_lengths=True, batch_first=True, init_token=None,
                        eos_token=END_TOKEN, pad_token=PAD_TOKEN, fix_length=fixed_lengths)
-    paragraph = Field(include_lengths=True, batch_first=True, init_token=None,
-                      eos_token=END_TOKEN, pad_token=PAD_TOKEN)
+
+    nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
+                          init_token=START_TOKEN, eos_token=END_TOKEN)
+    paragraph = NestedField(nesting_field, pad_token=PAD_TOKEN, eos_token=END_TOKEN,
+                            include_lengths=True)
+    #
+    # paragraph = Field(include_lengths=True, batch_first=True, init_token=None,
+    #                   eos_token=END_TOKEN, pad_token=PAD_TOKEN)
 
     fields = {
         'characters': ('characters', characters),
@@ -50,7 +57,7 @@ def data_reader(x_file: Iterable, y_file: Iterable, train: bool, split_sentences
     """
 
     example = empty_example()
-    spacy_tokenizer = data.get_tokenizer("spacy")
+    spacy_tokenizer = data.get_tokenizer("spacy")  # TODO: implement with word level
 
     for x, y in zip(x_file, y_file):
 
