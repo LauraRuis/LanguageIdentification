@@ -21,6 +21,7 @@ def test(model : Model, testing_data : Iterator, output_matrix : bool=False) -> 
         if isinstance(model, RecurrentModel):
             predictions = model.forward(characters, batch.characters[1])
         else:
+            print("Time: {}".format(characters.shape[1]))
             predictions = model.forward(characters)
 
         _, predicted_languages = torch.topk(predictions, 1)

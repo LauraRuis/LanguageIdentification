@@ -72,22 +72,21 @@ class GRUIdentifier(RecurrentModel):
 
 class CharModel(nn.Module):
 
-  def __init__(self, n_chars, padding_idx, emb_dim=30, hidden_size=50, output_dim=50, dropout_p=0.5,
-               bi=False):
+  def __init__(self, n_chars, padding_idx, emb_dim=30, output_dim=50, dropout_p=0.5, embed_chars=True):
     super(CharModel, self).__init__()
 
     self.input_dim = n_chars
     self.output_dim = output_dim
     self.dropout_p = dropout_p
     self.padding_idx = padding_idx
-    self.hidden_size = hidden_size
     self.emb_dim = emb_dim
+    self.embed_chars = embed_chars
 
-    self.embeddings = nn.Embedding(n_chars, emb_dim, padding_idx=padding_idx)
-    self.init_embedding()
+    if embed_chars:
+        self.embeddings = nn.Embedding(n_chars, emb_dim, padding_idx=padding_idx)
+        self.init_embedding()
+
     self.char_emb_dropout = nn.Dropout(p=dropout_p)
-
-    self.size = hidden_size * 2 if bi else hidden_size
 
   def init_embedding(self):
     init_range = math.sqrt(3 / self.emb_dim)
@@ -98,8 +97,11 @@ class CharModel(nn.Module):
   def forward(self, sentence: Variable) -> torch.Tensor:
 
       # embed characters
-      embedded = self.embeddings(sentence)
-      embedded = self.char_emb_dropout(embedded)
+      if self.embed_chars:
+          embedded = self.embeddings(sentence)
+          embedded = self.char_emb_dropout(embedded)
+      else:
+          embedded = sentence
 
       # character model
       output = self.char_model(embedded)
@@ -110,8 +112,8 @@ class CharModel(nn.Module):
 class SmallCNN(CharModel):
 
     def __init__(self, n_chars, padding_idx, emb_dim, num_filters, window_size, dropout_p, n_classes):
-        super(SmallCNN, self).__init__(n_chars, padding_idx, emb_dim=emb_dim, hidden_size=400, output_dim=100,
-                                      dropout_p=dropout_p, bi=False)
+        super(SmallCNN, self).__init__(n_chars, padding_idx, emb_dim=emb_dim,  output_dim=100, dropout_p=dropout_p,
+                                       embed_chars=True)
 
         self.conv1 = nn.Conv1d(emb_dim, num_filters, window_size, padding=window_size - 1)
         self.conv2 = nn.Conv1d(num_filters, num_filters, window_size, padding=window_size - 1)
@@ -131,6 +133,8 @@ class SmallCNN(CharModel):
 
     def char_model(self, embedded=None):
         embedded = torch.transpose(embedded, 1, 2)  # (bsz, dim, time)
+        if not self.train:
+            print("Time: {}".format(embedded.shape[2]))
         chars_conv = self.conv1(embedded)
         chars_conv = self.conv2(chars_conv)
         chars = F.max_pool1d(chars_conv, kernel_size=chars_conv.size(2)).squeeze(2)
@@ -142,24 +146,25 @@ class SmallCNN(CharModel):
 
 class CharCNN(CharModel):
 
-  def __init__(self, n_chars, padding_idx, emb_dim, dropout_p, n_classes):
+  def __init__(self, n_chars, padding_idx, emb_dim, dropout_p, n_classes, length):
 
-    super(CharCNN, self).__init__(n_chars, padding_idx, emb_dim=emb_dim, hidden_size=400, output_dim=100,
-                                  dropout_p=dropout_p, bi=False)
+    super(CharCNN, self).__init__(n_chars, padding_idx, emb_dim=emb_dim, output_dim=100,
+                                  dropout_p=dropout_p, embed_chars=False)
 
+    self.n_chars = n_chars
     # in_channels, out_channels, kernel_size, stride, padding
     conv_stride = 1
     max_pool_kernel_size = 3
     max_pool_stride = 3
-    padding = 1
-    conv_spec_1 = dict(in_channels=emb_dim, out_channels=256, kernel_size=7, padding=3)
-    conv_spec_2 = dict(in_channels=256, out_channels=256, kernel_size=7, padding=3)
-    conv_spec_3 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=1)
-    conv_spec_4 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=1)
-    conv_spec_5 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=1)
-    conv_spec_6 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=1)
+    padding = 0
+    conv_spec_1 = dict(in_channels=n_chars, out_channels=256, kernel_size=7, padding=0)
+    conv_spec_2 = dict(in_channels=256, out_channels=256, kernel_size=7, padding=0)
+    conv_spec_3 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=0)
+    conv_spec_4 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=0)
+    conv_spec_5 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=0)
+    conv_spec_6 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=0)
     network = [conv_spec_1, 'MaxPool', conv_spec_2, 'MaxPool', conv_spec_3,
-               conv_spec_4, conv_spec_5, conv_spec_6]
+               conv_spec_4, conv_spec_5, conv_spec_6, 'MaxPool']
 
     layers = []
     for layer in network:
@@ -173,11 +178,19 @@ class CharCNN(CharModel):
             layers.extend([conv, relu])
 
     self.layers = nn.Sequential(*layers)
-    self.fc1 = nn.Linear(256, 1024)
+    self.fc1 = nn.Linear(int((length - 96)/27) * 256, 1024)
     self.fc2 = nn.Linear(1024, 1024)
     self.classifier = nn.Linear(1024, n_classes)
 
-    self.xavier_uniform()
+    self.gaussian_init()
+
+  def gaussian_init(self, mean=0., std=0.05):
+
+      for name, weight in self.named_parameters():
+          if len(weight.size()) > 1:
+              nn.init.normal_(weight.data, mean=mean, std=std)
+          elif "bias" in name:
+              weight.data.fill_(0.)
 
   def xavier_uniform(self, gain=1.):
 
@@ -188,12 +201,28 @@ class CharCNN(CharModel):
       elif "bias" in name:
         weight.data.fill_(0.)
 
+  def one_hot(self, data):
+
+      batch_size, time = data.shape
+      flattened = data.view(-1).unsqueeze(1)
+
+      # One hot encoding buffer that you create out of the loop and just keep reusing
+      y_onehot = torch.FloatTensor(batch_size * time, self.n_chars)
+      y_onehot = y_onehot.cuda() if torch.cuda.is_available() else y_onehot
+
+      # In your for loop
+      y_onehot.zero_()
+      y_onehot.scatter_(1, flattened, 1)
+      return y_onehot.view(batch_size, time, self.n_chars)
+
   def char_model(self, embedded=None):
 
+    embedded = self.one_hot(embedded)
     embedded = torch.transpose(embedded, 1, 2)  # (bsz, dim, time)
+    bsz = embedded.shape[0]
     chars_conv = self.layers(embedded)
-    chars_conv = F.max_pool1d(chars_conv, kernel_size=chars_conv.size(2)).squeeze(2)
-    output = self.fc1(chars_conv)
+    # chars_conv = F.max_pool1d(chars_conv, kernel_size=chars_conv.size(2)).squeeze(2)
+    output = self.fc1(chars_conv.view(bsz, -1))
     output = self.char_emb_dropout(output)
     output = self.fc2(output)
     output = self.char_emb_dropout(output)
