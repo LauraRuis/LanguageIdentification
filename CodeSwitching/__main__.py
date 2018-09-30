@@ -125,7 +125,7 @@ def main():
 
         train(model=model,
               training_data=training_iterator, validation_data=validation_iterator, testing_data=testing_iterator,
-              optimizer=optimizer,
+              par_optimizer=optimizer,
               resume_state=resume_state, **cfg)
 
     elif cfg['mode'] == 'test':  # Let's separate test from inference mode
