@@ -123,7 +123,7 @@ def main():
 
         if use_cuda: model.cuda()
 
-        train(model=model,
+        train(model=model, optimizer=optimizer,
               training_data=training_iterator, validation_data=validation_iterator, testing_data=testing_iterator,
               par_optimizer=optimizer,
               resume_state=resume_state, **cfg)

@@ -31,15 +31,15 @@ def calculate_accuracy(predictions : torch.Tensor, targets : torch.Tensor,
             for p, t in zip(predicted_labels, target):
                 if p != t: confusion_matrix[p][t] += 1
     if confusion_matrix is not None:
-        return accuracies["classification"] / lengths.shape[0], confusion_matrix
+        return accuracies["text_partitioning"] / lengths.shape[0], accuracies["classification"] / lengths.shape[0], confusion_matrix
     else:
-        return accuracies["classification"] / lengths.shape[0]
+        return accuracies["text_partitioning"] / lengths.shape[0], accuracies["classification"] / lengths.shape[0]
 
 
 def test(model : Model, testing_data : Iterator, level : str, lengths : torch.Tensor, show_example : bool=False) -> float:
 
     model.eval()
-    batch_accuracies = []
+    batch_accuracies = {"text_partitioning" : [], "classification" : []}
     classes = testing_data.dataset.fields['language_per_char'].vocab.itos
     n_classes = len(classes)
     confusion_matrix = numpy.zeros((n_classes, n_classes))
@@ -61,8 +61,10 @@ def test(model : Model, testing_data : Iterator, level : str, lengths : torch.Te
             predictions = model.forward(sequence)
 
         # Save data needed to calculate accuracy for later
-        accuracy, confusion_matrix = calculate_accuracy(predictions, target, lengths, confusion_matrix)
-        batch_accuracies.append(accuracy)
+        tp_accuracy, cl_accuracy, confusion_matrix = calculate_accuracy(predictions, target, lengths, confusion_matrix)
+        batch_accuracies["text_partitioning"].append(tp_accuracy)
+        batch_accuracies["classification"].append(cl_accuracy)
+
         # if show_example:
         #     print_example(sequence[0, :], predictions[0, :], target[0, :], testing_data)
     
@@ -77,4 +79,5 @@ def test(model : Model, testing_data : Iterator, level : str, lengths : torch.Te
                 f.write("\n")
 
 
-    return numpy.array([acc for acc in batch_accuracies]).mean()
+    return (numpy.array([acc for acc in batch_accuracies["text_partitioning"]]).mean(),
+            numpy.array([acc for acc in batch_accuracies["classification"]]).mean())

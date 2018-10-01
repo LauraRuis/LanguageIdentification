@@ -40,7 +40,7 @@ def train(optimizer: adam=None, model: Model=None,
         best_val_acc = validation_acc
 
     print(datetime.datetime.now(), " Training at {} level starts.".format(level))
-    batch_accuracies, epoch_accuracies = [], []
+    batch_accuracies, epoch_accuracies = {"TP" : [], "CL" : []}, {"TP" : [], "CL" : []}
     for i in range(start_epoch, epochs):
         epoch_losses = []
         for j, batch in enumerate(iter(training_data)):
@@ -73,51 +73,62 @@ def train(optimizer: adam=None, model: Model=None,
             _, predicted_languages = torch.topk(predictions, 1)
 
             # Save data needed to calculate accuracy for later
-            batch_accuracy = calculate_accuracy(predictions, target, lengths)
-            batch_accuracies.append(batch_accuracy)
-            epoch_accuracies.append(batch_accuracy)
+            batch_accuracy_tp, batch_accuracy_cl = calculate_accuracy(predictions, target, lengths)
+            batch_accuracies["TP"].append(batch_accuracy_tp)
+            batch_accuracies["CL"].append(batch_accuracy_cl)
+            epoch_accuracies["TP"].append(batch_accuracy_tp)
+            epoch_accuracies["CL"].append(batch_accuracy_cl)
+
 
             # Update the weights
             loss.backward()
             optimizer.step()
 
             if (j + 1) % cfg["log_frequency"] == 0:
-                print(datetime.datetime.now(), " Logging: Epoch: {} | Iter: {} | Loss: {} | Batch accuracy: {}".format(
-                    i, j, round(loss.item(), 4), round(batch_accuracies[-1], 3)))
+                print(datetime.datetime.now(), " Logging: Epoch: {} | Iter: {} | Loss: {:.4f} | Batch acc. CL: {:.2f} | Batch acc. TP: {:.2f}".format(
+                    i, j, loss.item(), batch_accuracies["CL"][-1], batch_accuracies["TP"][-1]))
 
             if (j + 1) % cfg["eval_frequency"] == 0:
-                train_accuracy = np.array(batch_accuracies).mean()
-                batch_accuracies = []
-                validation_accuracy = test(model, validation_data, level, lengths)
+                train_accuracy_cl = np.array(batch_accuracies["CL"]).mean()
+                train_accuracy_tp = np.array(batch_accuracies["TP"]).mean()
+
+                batch_accuracies = {"TP" : [], "CL" : []}
+                validation_accuracy_tp, validation_accuracy_cl = test(model, validation_data, level, lengths)
                 print(datetime.datetime.now(), " Evaluation: Epoch: {} | Iter: {} | Loss: {} | "
-                      "Av. Batch Train accuracy: {}| Validation accuracy {} ".format(
-                    i, j, round(loss.item(), 4), round(train_accuracy, 2), round(validation_accuracy, 2)))
-                if validation_accuracy > best_val_acc:
-                    best_train_acc = train_accuracy
-                    test_accuracy = test(model, testing_data, level, lengths, True)
-                    best_test_acc = test_accuracy
-                    best_val_acc = validation_accuracy
+                      "Av. Batch Train acc. CL {:.4f}| Batch Train acc. TP {:.4f}| | Validation acc. CL {:.2f} | Validation acc. TP {:.2f}".format(
+                      i, j, loss.item(), train_accuracy_cl, train_accuracy_tp, validation_accuracy_cl, validation_accuracy_tp
+                ))
+                if validation_accuracy_cl > best_val_acc:
+                    best_train_acc_cl = train_accuracy_cl
+                    best_train_acc_tp = train_accuracy_tp
+                    best_val_acc = validation_accuracy_cl
                     output_dir = cfg["output_dir"]
                     save_model(output_dir,
                                {
                                    'epoch': i,
                                    'state_dict': model.state_dict(),
-                                   'train_acc': train_accuracy,
-                                   'val_acc': validation_accuracy,
-                                   'test_acc': test_accuracy,
+                                   'train_acc_cl': train_accuracy_cl,
+                                   'val_acc_cl': validation_accuracy_cl,
+                                   'train_acc_tp': train_accuracy_tp,
+                                   'val_acc_tp': validation_accuracy_tp,
                                    'optimizer': optimizer.state_dict(),
                                },
                                filename=cfg["model_type"] + "_best_model.pth.tar")
 
-        train_accuracy = np.array(epoch_accuracies).mean()
-        epoch_accuracies = []
-        validation_accuracy = test(model, validation_data, level, lengths)
+        train_accuracy_tp = np.array(epoch_accuracies["TP"]).mean()
+        train_accuracy_cl = np.array(epoch_accuracies["CL"]).mean()
 
-        print(datetime.datetime.now(), " Epoch: {} finished | Average loss: {} | "
-              "Av. Batch Train accuracy: {} | Validation accuracy: {}".format(
-              i + 1, round(np.mean(np.array(epoch_losses)), 2), round(train_accuracy, 2), round(validation_accuracy, 2)
+        epoch_accuracies = {"TP" : [], "CL" : []}
+        validation_accuracy_tp, validation_accuracy_cl = test(model, validation_data, level, lengths)
+        test_accuracy_tp, test_accuracy_cl = test(model, testing_data, level, lengths)
+
+        print(datetime.datetime.now(), " Epoch: {} finished | Average loss: {:.4f} | "
+              "Av. Batch Train accuracy CL: {:.2f} | Av. Batch Train accuracy TP: {:.2f} | Validation acc. CL {:.2f} | Validation acc. TP {:.2f}".format(
+              i + 1, np.mean(np.array(epoch_losses)), train_accuracy_cl, train_accuracy_tp, validation_accuracy_cl, validation_accuracy_tp
         ))
 
     print(datetime.datetime.now(), " Done training.")
-    print("Best model: Train accuracy: {} | Validation accuracy: {} | Test accuracy: {}".format(
-          best_train_acc, best_val_acc, best_test_acc))
+    print("Best model: Train accuracy CL: {:.2f} | Train accuracy TP: {:.2f} | Validation acc. CL {:.2f} | Validation acc. TP {:.2f} \
+          | Test acc. CL {:.2f} | Test acc. TP {:.2f} | ".format(
+          best_train_acc_cl, best_train_acc_tp, validation_accuracy_cl, validation_accuracy_tp, test_accuracy_cl, test_accuracy_tp
+    ))
