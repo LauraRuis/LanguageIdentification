@@ -53,12 +53,13 @@ def test(model : Model, testing_data : Iterator, level : str, lengths : torch.Te
         else:
             sequence = batch.paragraph[0]
             lengths = batch.paragraph[1]
+            char_lengths = batch.paragraph[2]
             target = batch.language_per_word[0]
 
         if model.name == "recurrent":            
             predictions = model.forward(sequence, lengths)
         else:
-            predictions = model.forward(sequence)
+            predictions = model.forward(sequence, char_lengths, lengths)
 
         # Save data needed to calculate accuracy for later
         tp_accuracy, cl_accuracy, confusion_matrix = calculate_accuracy(predictions, target, lengths, confusion_matrix)

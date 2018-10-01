@@ -25,10 +25,10 @@ def get_data_fields() -> dict:
     characters = Field(include_lengths=True, batch_first=True, init_token=None,
                        eos_token=END_TOKEN, pad_token=PAD_TOKEN)
     paragraph = Field(include_lengths=True, batch_first=True, init_token=None,
-                      eos_token=END_TOKEN, pad_token=PAD_TOKEN)
+                      eos_token=END_TOKEN, pad_token=PAD_TOKEN)  # FIXME BACK
 
     nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
-                          init_token=START_TOKEN, eos_token=END_TOKEN)
+                          eos_token=None)
 
     paragraph = NestedField(nesting_field, pad_token=PAD_TOKEN, eos_token=END_TOKEN,
                             include_lengths=True)

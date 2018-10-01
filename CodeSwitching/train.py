@@ -57,6 +57,7 @@ def train(optimizer: adam=None, model: Model=None,
             else:
                 sequence = batch.paragraph[0]
                 lengths = batch.paragraph[1]
+                char_lengths = batch.paragraph[2]
                 target = batch.language_per_word[0]
                 # NLLLoss for using the log_softmax in the recurrent model
                 pad_idx = training_data.dataset.fields['paragraph'].vocab.stoi[PAD_TOKEN]
@@ -67,7 +68,7 @@ def train(optimizer: adam=None, model: Model=None,
             if isinstance(model, RecurrentModel):
                 predictions = model.forward(sequence, lengths)
             else:
-                predictions = model.forward(sequence)
+                predictions = model.forward(sequence, char_lengths, lengths)
 
             bsz, time, n_languages = predictions.shape
             loss = loss_function(predictions.view(bsz * time, n_languages), target.view(-1))

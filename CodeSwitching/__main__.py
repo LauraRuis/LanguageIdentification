@@ -18,15 +18,15 @@ def main():
     ap.add_argument('--output_dir', type=str, default='output')
 
     # data arguments
-    ap.add_argument('--training_text', type=str, default='Data/CodeSwitching/trn_sentences.txt')
-    ap.add_argument('--training_labels', type=str, default='Data/CodeSwitching/trn_lang_labels.txt')
-    ap.add_argument('--training_switch', type=str, default='Data/CodeSwitching/trn_switch_labels.txt')
-    ap.add_argument('--validation_text', type=str, default='Data/CodeSwitching/dev_sentences.txt')
-    ap.add_argument('--validation_labels', type=str, default='Data/CodeSwitching/dev_lang_labels.txt')
-    ap.add_argument('--validation_switch', type=str, default='Data/CodeSwitching/dev_switch_labels.txt')
-    ap.add_argument('--testing_text', type=str, default='Data/CodeSwitching/tst_sentences.txt')
-    ap.add_argument('--testing_labels', type=str, default='Data/CodeSwitching/tst_lang_labels.txt')
-    ap.add_argument('--testing_switch', type=str, default='Data/CodeSwitching/tst_switch_labels.txt')
+    ap.add_argument('--training_text', type=str, default='../Data/CodeSwitching/trn_sentences.txt')
+    ap.add_argument('--training_labels', type=str, default='../Data/CodeSwitching/trn_lang_labels.txt')
+    ap.add_argument('--training_switch', type=str, default='../Data/CodeSwitching/trn_switch_labels.txt')
+    ap.add_argument('--validation_text', type=str, default='../Data/CodeSwitching/dev_sentences.txt')
+    ap.add_argument('--validation_labels', type=str, default='../Data/CodeSwitching/dev_lang_labels.txt')
+    ap.add_argument('--validation_switch', type=str, default='../Data/CodeSwitching/dev_switch_labels.txt')
+    ap.add_argument('--testing_text', type=str, default='../Data/CodeSwitching/tst_sentences.txt')
+    ap.add_argument('--testing_labels', type=str, default='../Data/CodeSwitching/tst_lang_labels.txt')
+    ap.add_argument('--testing_switch', type=str, default='../Data/CodeSwitching/tst_switch_labels.txt')
     ap.add_argument('--level', type=str, choices=['word', 'char'], default='char')
 
     # general model parameters
@@ -86,7 +86,7 @@ def main():
 
         # Initialise a new model
         if cfg['model_type'] == 'recurrent':
-            model = GRUIdentifier(vocab_size, n_classes, **cfg)
+            model = GRUIdentifier(vocab_size, n_classes, vocab=training_data.fields['characters'].vocab.itos, **cfg)
         elif cfg['model_type'] == 'character_cnn':
             padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
             model = CharCNN(vocab_size, padding_idx,
@@ -94,9 +94,10 @@ def main():
                             n_classes=n_classes)
         elif cfg['model_type'] == 'cnn_rnn':
             training_data.fields['paragraph']
-            char_vocab_size = len(training_data.fields['characters'].vocab)
+            char_vocab_size = len(training_data.fields['paragraph'].vocab)
             d = round(math.log(abs(char_vocab_size)))
-            model = CNNRNN(char_vocab_size, d, vocab_size, n_classes, num_filters=50, kernel_size=3, n1=1, n2=1)
+            model = CNNRNN(char_vocab_size, d, vocab_size, n_classes, num_filters=50, kernel_size=3, n1=1, n2=1,
+                           vocab=training_data.fields['paragraph'].vocab.itos)
 
         else:
             raise NotImplementedError()

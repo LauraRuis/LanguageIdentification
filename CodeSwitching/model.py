@@ -6,6 +6,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import math
 from torchtext import data
 
+from CodeSwitching.utils import PAD_TOKEN
 
 class Model(nn.Module): # General class if we want all models to have common functions
     def __init__(self):
@@ -19,7 +20,7 @@ class RecurrentModel(nn.Module): # General recurrent class, because I want to cr
 
 class GRUIdentifier(RecurrentModel):
     def __init__(self, vocab_size : int, n_classes : int, embedding_dim : int,
-                 hidden_dim : int, bidirectional : bool, **kwargs):
+                 hidden_dim : int, bidirectional : bool, vocab, **kwargs):
         super().__init__()
         self.name = "recurrent"
         self.hidden_dim = hidden_dim
@@ -31,6 +32,8 @@ class GRUIdentifier(RecurrentModel):
         h0_tensor = torch.Tensor(1, hidden_dim)
         nn.init.xavier_normal_(h0_tensor, gain=1.)
         self.h_0_init = nn.Parameter(h0_tensor)
+
+        self.vocab = vocab
 
         for layer_p in self.gru._all_weights:
             for p in layer_p:
@@ -148,63 +151,91 @@ class CharCNN(CharModel):
     return log_probs
 
 class CNNRNN(nn.Module):
-    def __init__(self, char_vocab_size, embed_size, word_vocab_size, n_classes, num_filters, kernel_size, n1, n2):
+    def __init__(self, char_vocab_size, embed_size, word_vocab_size, n_classes, num_filters, kernel_size, n1, n2, vocab):
         super(CNNRNN, self).__init__()
 
-        self.char_embedding = nn.Embedding(char_vocab_size, embed_size)
+        self.char_embedding = nn.Embedding(char_vocab_size, embed_size, padding_idx=1)
         self.conv1 = nn.Conv1d(embed_size, n1, kernel_size)
         self.relu = nn.ReLU()
         self.conv2_3 = nn.Conv1d(n1, num_filters, kernel_size)
         self.conv2_4 = nn.Conv1d(n1, num_filters, 4)
         self.conv2_5 = nn.Conv1d(n1, num_filters, 5)
-        self.dropout = nn.Dropout()
-        self.lstm = nn.LSTM(3 * num_filters, 128, num_layers=1, bidirectional=True)
+        self.dropout = nn.Dropout(p=0.25)
+        self.lstm = nn.LSTM(3 * num_filters, 128, num_layers=1, bidirectional=True)  # TODO fix back
+
+        self.hidden_dim = 128
+        self.bidirectional = True
+        # self.lstm = nn.LSTM(embed_size, self.hidden_dim, num_layers=1, bidirectional=self.bidirectional)
         self.linear_lstm = nn.Linear(128 * 2, n_classes)
 
+        self.vocab = vocab
         self.name = "cnnrnn"
         self.linear = nn.Linear(3 * num_filters, 3 * num_filters)
 
-    def forward(self, sequence):
+    def init_hidden(self, batch_size : int) -> torch.Tensor:
+        #h_0 = Variable(torch.zeros(2 if self.bidirectional else 1,
+                       # batch_size, self.hidden_dim))
+        h_0 = torch.Tensor(1, self.hidden_dim).repeat(2 if self.bidirectional else 1, batch_size, 1)
 
-        # print("Sequence initial shape: ", sequence.shape)
-        embedded = self.char_embedding(sequence)
-        # print("Sequence embeddings shape: ", embedded.shape)
+        if torch.cuda.is_available():
+            return h_0.cuda()
+        else:
+            return h_0
 
-        bsz, seq_length, char_length, emb_dim = embedded.shape
-        embedded = torch.transpose(embedded.view(bsz * seq_length, char_length, emb_dim), 1, 2)
-        # print("flattened ready for conv: ", embedded.shape)
-        # print("Time: ", char_length)
-        out = self.relu(self.conv1(embedded))
-        out = self.dropout(out)
-        # print("Size after first cnv", out.shape)
+    def forward(self, sequence : Variable, char_lengths : torch.Tensor, lengths : torch.Tensor) -> torch.Tensor:
 
-        out_3 = self.relu(self.conv2_3(out))
-        out_4 = self.relu(self.conv2_4(out))
-        out_5 = self.relu(self.conv2_5(out))
-        # print("Sizes 3 convs: ", out_3.shape, out_4.shape, out_5.shape)
+        bsz, seq_length, char_length = sequence.shape
 
-        maxpool_3 = nn.MaxPool1d(out_3.shape[2])
-        maxpool_4 = nn.MaxPool1d(out_4.shape[2])
-        maxpool_5 = nn.MaxPool1d(out_5.shape[2])
+        word_reps = []
+        for t in range(seq_length):
 
-        y_3 = maxpool_3(out_3).squeeze(-1)
-        y_4 = maxpool_4(out_4).squeeze(-1)
-        y_5 = maxpool_5(out_5).squeeze(-1)
-        # print("Sizes after maxpool: ", y_3.shape, y_4.shape, y_5.shape)
+            words = sequence[:, t]
+            max_length = char_lengths[:, t].max()
+            max_length = max_length if max_length > 7 else 8
+            words_chopped = words[:, :max_length]
 
-        y = torch.cat([y_3, y_4, y_5], 1)
-        # print("Concatenated size: ", y.shape)
+            words_chopped = self.char_embedding(words_chopped)
+            embedded = torch.transpose(words_chopped, 1, 2)
+            # print("flattened ready for conv: ", embedded.shape)
+            # print("Time: ", char_length)
+            out = self.relu(self.conv1(embedded))
+            # out = self.dropout(out)
+            # print("Size after first cnv", out.shape)
 
-        residual = self.linear(y)
+            out_3 = self.relu(self.conv2_3(out))
+            out_4 = self.relu(self.conv2_4(out))
+            out_5 = self.relu(self.conv2_5(out))
+            # print("Sizes 3 convs: ", out_3.shape, out_4.shape, out_5.shape)
 
-        z = y + self.relu(residual)
-        # print("Z shape: ", z.shape)
-        z = z.view(bsz, seq_length, -1)
-        # print("Z reshapen: ", z.shape)
+            maxpool_3 = nn.MaxPool1d(out_3.shape[2])
+            maxpool_4 = nn.MaxPool1d(out_4.shape[2])
+            maxpool_5 = nn.MaxPool1d(out_5.shape[2])
 
-        out, _ = self.lstm(z)
+            y_3 = maxpool_3(out_3).squeeze(-1)
+            y_4 = maxpool_4(out_4).squeeze(-1)
+            y_5 = maxpool_5(out_5).squeeze(-1)
+            # print("Sizes after maxpool: ", y_3.shape, y_4.shape, y_5.shape)
+
+            y = torch.cat([y_3, y_4, y_5], 1)
+            # print("Concatenated size: ", y.shape)
+
+            residual = self.linear(y)
+
+            z = y + self.relu(residual)
+            # print("Z shape: ", z.shape)
+            word_reps.append(z.unsqueeze(1))
+            # z = z.view(bsz, seq_length, -1)
+            # print("Z reshapen: ", z.shape)
+
+        z = torch.cat(word_reps, 1)
+        packed_embedded = pack_padded_sequence(z.transpose(0, 1), lengths)
+
+        recurrent_out, _ = self.lstm(packed_embedded)
         # print("SHape after LSTM: ", out.shape)
-        output = self.linear_lstm(out)
+
+        recurrent_out, _ = pad_packed_sequence(recurrent_out)
+
+        output = self.linear_lstm(recurrent_out.transpose(0, 1))
         # print("Final oout: ", output.shape)
 
         log_probs = F.log_softmax(output, 2)
