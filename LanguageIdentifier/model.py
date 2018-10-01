@@ -5,6 +5,8 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import math
 
+from LanguageIdentifier.utils import PAD_TOKEN
+
 
 class Model(nn.Module): # General class if we want all models to have common functions
     def __init__(self):
@@ -26,15 +28,27 @@ class GRUIdentifier(RecurrentModel):
         self.bidirectional = bidirectional
         self.embeddings = nn.Embedding(vocab_size, embedding_dim)
         self.dropout = nn.Dropout(dropout_p)
-        self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim, bidirectional=bidirectional)
+        self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim,
+                          bidirectional=bidirectional, batch_first=True)
+        h0_tensor = torch.Tensor(1, hidden_dim)
+        nn.init.xavier_normal_(h0_tensor, gain=1.)
+        self.h_0_init = nn.Parameter(h0_tensor)
+
+        for layer_p in self.gru._all_weights:
+            for p in layer_p:
+                if 'weight' in p:
+                    print("YUP")
+                    nn.init.orthogonal_(self.gru.__getattr__(p))
+
         if bidirectional:
             self.hidden2label = nn.Linear(2*hidden_dim, n_classes)
         else:
             self.hidden2label = nn.Linear(hidden_dim, n_classes)            
 
     def init_hidden(self, batch_size : int) -> torch.Tensor:
-        h_0 = Variable(torch.zeros(2 if self.bidirectional else 1,
-                       batch_size, self.hidden_dim))
+        #h_0 = Variable(torch.zeros(2 if self.bidirectional else 1,
+                       # batch_size, self.hidden_dim))
+        h_0 = self.h_0_init.repeat(2 if self.bidirectional else 1, batch_size, 1)
 
         if torch.cuda.is_available():
             return h_0.cuda()
@@ -44,17 +58,17 @@ class GRUIdentifier(RecurrentModel):
     def forward(self, sentence : Variable, lengths : torch.Tensor) -> torch.Tensor:
 
         batch_size = sentence.shape[0]
-        x = self.embeddings(torch.transpose(sentence, 0, 1))  # time, batch, dim
+        x = self.embeddings(sentence)  # time, batch, dim
         x = self.dropout(x)
-        packed_x = pack_padded_sequence(x, lengths)
+        packed_x = pack_padded_sequence(x, lengths, batch_first=True)
 
         # Recurrent part
         hidden_in = self.init_hidden(batch_size)
         recurrent_out, hidden_out = self.gru(packed_x, hidden_in)
-        recurrent_out, _ = pad_packed_sequence(recurrent_out)
+        recurrent_out, _ = pad_packed_sequence(recurrent_out, batch_first=True)
 
         # Unpack packed sequences
-        recurrent_out = torch.transpose(recurrent_out, 1, 0)  # batch, time, dim
+        #recurrent_out = torch.transpose(recurrent_out, 1, 0)  # batch, time, dim
         dim = recurrent_out.size(2)
         indices = lengths.view(-1, 1).unsqueeze(2).repeat(1, 1, dim) - 1
         indices = indices.cuda() if torch.cuda.is_available() else indices

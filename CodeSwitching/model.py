@@ -27,14 +27,25 @@ class GRUIdentifier(RecurrentModel):
         self.embeddings = nn.Embedding(vocab_size, embedding_dim)
         self.embeddings_dropout = nn.Dropout(0.2)
         self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim, bidirectional=bidirectional, dropout=0.5)
+
+        h0_tensor = torch.Tensor(1, hidden_dim)
+        nn.init.xavier_normal_(h0_tensor, gain=1.)
+        self.h_0_init = nn.Parameter(h0_tensor)
+
+        for layer_p in self.gru._all_weights:
+            for p in layer_p:
+                if 'weight' in p:
+                    nn.init.orthogonal_(self.gru.__getattr__(p))
+
         if bidirectional:
             self.hidden2label = nn.Linear(2*hidden_dim, n_classes)
         else:
             self.hidden2label = nn.Linear(hidden_dim, n_classes)
 
     def init_hidden(self, batch_size : int) -> torch.Tensor:
-        h_0 = Variable(torch.zeros(2 if self.bidirectional else 1,
-                       batch_size, self.hidden_dim))
+        #h_0 = Variable(torch.zeros(2 if self.bidirectional else 1,
+                       # batch_size, self.hidden_dim))
+        h_0 = self.h_0_init.repeat(2 if self.bidirectional else 1, batch_size, 1)
 
         if torch.cuda.is_available():
             return h_0.cuda()
