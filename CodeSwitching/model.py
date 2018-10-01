@@ -53,6 +53,7 @@ class GRUIdentifier(RecurrentModel):
             return h_0
 
     def forward(self, sentence : Variable, lengths : torch.Tensor) -> torch.Tensor:
+
         batch_size = sentence.shape[0]
         x = self.embeddings(torch.transpose(sentence, 0, 1))  # time, batch, dim
         x = self.embeddings_dropout(x)

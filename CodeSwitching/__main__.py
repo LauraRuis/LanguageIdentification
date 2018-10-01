@@ -64,7 +64,7 @@ def main():
         training_iterator = Iterator(training_data, cfg['batch_size'], train=True,
                                      sort_within_batch=True, device=device, repeat=False)
         validation_iterator = Iterator(validation_data, cfg['batch_size'], train=False, sort_within_batch=True,
-                                       device=-1, repeat=False)
+                                       device=device, repeat=False)
     testing_iterator = Iterator(testing_data, cfg['batch_size'], train=False,
                                 sort_within_batch=True, device=device, repeat=False)
 

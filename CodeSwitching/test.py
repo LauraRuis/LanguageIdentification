@@ -58,8 +58,6 @@ def test(model : Model, testing_data : Iterator, level : str, lengths : torch.Te
         if model.name == "recurrent":            
             predictions = model.forward(sequence, lengths)
         else:
-            sequence = sequence.cuda() if torch.cuda.is_available() else sequence
-            target = target.cuda() if torch.cuda.is_available() else target
             predictions = model.forward(sequence)
 
         # Save data needed to calculate accuracy for later
