@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import math
+from torchtext import data
 
 
 class Model(nn.Module): # General class if we want all models to have common functions
@@ -39,7 +40,7 @@ class GRUIdentifier(RecurrentModel):
         if bidirectional:
             self.hidden2label = nn.Linear(2*hidden_dim, n_classes)
         else:
-            self.hidden2label = nn.Linear(hidden_dim, n_classes)            
+            self.hidden2label = nn.Linear(hidden_dim, n_classes)
 
     def init_hidden(self, batch_size : int) -> torch.Tensor:
         #h_0 = Variable(torch.zeros(2 if self.bidirectional else 1,
@@ -144,3 +145,52 @@ class CharCNN(CharModel):
     log_probs = F.log_softmax(labels, 1)
 
     return log_probs
+
+class CNNRNN(nn.Module):
+    def __init__(self, char_vocab_size, embed_size, word_vocab_size, n_classes, num_filters, kernel_size, n1, n2):
+        super(CNNRNN, self).__init__()
+
+        self.char_embedding = nn.Embedding(char_vocab_size, embed_size)
+        self.conv1 = nn.Conv1d(embed_size, num_filters, kernel_size)
+        self.relu = nn.ReLU()
+        self.conv2_3 = nn.Conv1d(1, num_filters, kernel_size)
+        self.conv2_4 = nn.Conv1d(1, num_filters, 4)
+        self.conv2_5 = nn.Conv1d(1, num_filters, 5)
+        self.dropout = nn.Dropout()
+        self.lstm = nn.LSTM(3, 128, num_layers=1, bidirectional=True)
+        self.linear_lstm = nn.Linear(128 * 2, n_classes)
+
+        self.data_field = data.Field(pad_token = 0)
+
+    def forward(self, sequence):
+        embedded = self.char_embedding(sequence)
+        bsz, seq_length, char_length, emb_dim = embedded.shape
+        embedded = torch.transpose(embedded.view(bsz * seq_length, char_length, emb_dim), 1, 2)
+        out = self.relu(self.conv1(embedded))
+        out = self.dropout(out)
+
+        out_3 = self.relu(self.conv2_3(out))
+        out_4 = self.relu(self.conv2_4(out))
+        out_5 = self.relu(self.conv2_5(out))
+
+        maxpool_3 = nn.MaxPool1d(out_3.shape[2])
+        maxpool_4 = nn.MaxPool1d(out_4.shape[2])
+        maxpool_5 = nn.MaxPool1d(out_5.shape[2])
+        y_3 = maxpool_3(out_3).squeeze(-1)
+        y_4 = maxpool_4(out_4).squeeze(-1)
+        y_5 = maxpool_5(out_5).squeeze(-1)
+
+        y = torch.cat([y_3, y_4, y_5], 1)
+
+        linear = nn.Linear(y.shape[-1], y.shape[-1])
+        residual = linear(y)
+
+        z = y + residual
+        z = z.view(bsz, seq_length, -1)
+
+        out, _ = self.lstm(z)
+        output = self.linear_lstm(out)
+
+        log_probs = F.log_softmax(output, 2)
+
+        return log_probs

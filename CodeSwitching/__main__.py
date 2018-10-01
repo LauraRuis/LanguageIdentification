@@ -4,12 +4,12 @@ import argparse
 import torch
 from torchtext.data import Iterator
 import os
+import math
 
 from CodeSwitching.train import train
 from CodeSwitching.data import load_data
 from CodeSwitching.model import GRUIdentifier, CharCNN
 from CodeSwitching.utils import PAD_TOKEN
-
 
 def main():
     # torch.backends.cudnn.enabled=False
@@ -55,7 +55,7 @@ def main():
     # Check for GPU
     use_cuda = True if torch.cuda.is_available() else False
     device = torch.device(type='cuda') if use_cuda else torch.device(type='cpu')
-    
+
     # Load datasets and create iterators to use while training / testing
     training_data, validation_data, testing_data = load_data(**cfg)
 
@@ -64,9 +64,9 @@ def main():
         training_iterator = Iterator(training_data, cfg['batch_size'], train=True,
                                      sort_within_batch=True, device=device, repeat=False)
         validation_iterator = Iterator(validation_data, cfg['batch_size'], train=False, sort_within_batch=True,
-                                       device=device, repeat=False)
+                                       device=-1, repeat=False)
     testing_iterator = Iterator(testing_data, cfg['batch_size'], train=False,
-                                sort_within_batch=True, device=device, repeat=False)
+                                sort_within_batch=True, device=-1, repeat=False)
 
     print("Loaded %d training samples" % len(training_data))
     print("Loaded %d validation samples" % len(validation_data))
@@ -92,6 +92,12 @@ def main():
             model = CharCNN(vocab_size, padding_idx,
                             emb_dim=cfg["embedding_dim"], num_filters=30, window_size=3, dropout_p=0.33,
                             n_classes=n_classes)
+        elif cfg['model_type'] == 'cnn_rnn':
+            training_data.fields['paragraph']
+            char_vocab_size = len(training_data.fields['characters'].vocab)
+            d = round(math.log(abs(char_vocab_size)))
+            model = CNNRNN(char_vocab_size, d, vocab_size, n_classes, num_filters=1, kernel_size=3, n1=1, n2=1)
+
         else:
             raise NotImplementedError()
 
@@ -125,7 +131,7 @@ def main():
 
         train(model=model, optimizer=optimizer,
               training_data=training_iterator, validation_data=validation_iterator, testing_data=testing_iterator,
-              par_optimizer=optimizer,
+              optimizer=optimizer,
               resume_state=resume_state, **cfg)
 
     elif cfg['mode'] == 'test':  # Let's separate test from inference mode

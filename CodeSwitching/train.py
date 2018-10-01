@@ -43,6 +43,7 @@ def train(optimizer: adam=None, model: Model=None,
     batch_accuracies, epoch_accuracies = {"TP" : [], "CL" : []}, {"TP" : [], "CL" : []}
     for i in range(start_epoch, epochs):
         epoch_losses = []
+
         for j, batch in enumerate(iter(training_data)):
             model.train()
             optimizer.zero_grad()

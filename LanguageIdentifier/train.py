@@ -82,7 +82,7 @@ def train(par_optimizer: adam=None, model: Model=None,
                     lr = cfg["learning_rate"]
                 print(datetime.datetime.now(), "Logging: Epoch: {} | Iter: {} | Loss: {} | Batch accuracy: {} "
                                                "| LR: {}".format(
-                    i, j, round(loss.item(), 4), round(batch_accuracies[-1], 3), round(lr, 3))
+                    i, j, round(loss.item(), 4), round(batch_accuracies[-1], 3), round(lr, 5))
                       )
 
             if (j + 1) % cfg["eval_frequency"] == 0:

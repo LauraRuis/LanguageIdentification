@@ -220,6 +220,7 @@ class CharCNN(CharModel):
         y_onehot.scatter_(1, flattened, 1)
         return y_onehot.view(batch_size, time, self.n_chars)
 
+
     def char_model(self, embedded=None):
         embedded = self.one_hot(embedded)
         embedded = torch.transpose(embedded, 1, 2)  # (bsz, dim, time)
