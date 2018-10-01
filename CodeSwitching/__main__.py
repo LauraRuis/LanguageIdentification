@@ -8,7 +8,7 @@ import math
 
 from CodeSwitching.train import train
 from CodeSwitching.data import load_data
-from CodeSwitching.model import GRUIdentifier, CharCNN
+from CodeSwitching.model import GRUIdentifier, CharCNN, CNNRNN
 from CodeSwitching.utils import PAD_TOKEN
 
 def main():
@@ -66,7 +66,7 @@ def main():
         validation_iterator = Iterator(validation_data, cfg['batch_size'], train=False, sort_within_batch=True,
                                        device=-1, repeat=False)
     testing_iterator = Iterator(testing_data, cfg['batch_size'], train=False,
-                                sort_within_batch=True, device=-1, repeat=False)
+                                sort_within_batch=True, device=device, repeat=False)
 
     print("Loaded %d training samples" % len(training_data))
     print("Loaded %d validation samples" % len(validation_data))
@@ -96,7 +96,7 @@ def main():
             training_data.fields['paragraph']
             char_vocab_size = len(training_data.fields['characters'].vocab)
             d = round(math.log(abs(char_vocab_size)))
-            model = CNNRNN(char_vocab_size, d, vocab_size, n_classes, num_filters=1, kernel_size=3, n1=1, n2=1)
+            model = CNNRNN(char_vocab_size, d, vocab_size, n_classes, num_filters=50, kernel_size=3, n1=1, n2=1)
 
         else:
             raise NotImplementedError()
@@ -131,7 +131,6 @@ def main():
 
         train(model=model, optimizer=optimizer,
               training_data=training_iterator, validation_data=validation_iterator, testing_data=testing_iterator,
-              optimizer=optimizer,
               resume_state=resume_state, **cfg)
 
     elif cfg['mode'] == 'test':  # Let's separate test from inference mode

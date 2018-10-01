@@ -151,46 +151,60 @@ class CNNRNN(nn.Module):
         super(CNNRNN, self).__init__()
 
         self.char_embedding = nn.Embedding(char_vocab_size, embed_size)
-        self.conv1 = nn.Conv1d(embed_size, num_filters, kernel_size)
+        self.conv1 = nn.Conv1d(embed_size, n1, kernel_size)
         self.relu = nn.ReLU()
-        self.conv2_3 = nn.Conv1d(1, num_filters, kernel_size)
-        self.conv2_4 = nn.Conv1d(1, num_filters, 4)
-        self.conv2_5 = nn.Conv1d(1, num_filters, 5)
+        self.conv2_3 = nn.Conv1d(n1, num_filters, kernel_size)
+        self.conv2_4 = nn.Conv1d(n1, num_filters, 4)
+        self.conv2_5 = nn.Conv1d(n1, num_filters, 5)
         self.dropout = nn.Dropout()
-        self.lstm = nn.LSTM(3, 128, num_layers=1, bidirectional=True)
+        self.lstm = nn.LSTM(3 * num_filters, 128, num_layers=1, bidirectional=True)
         self.linear_lstm = nn.Linear(128 * 2, n_classes)
 
-        self.linear = nn.Linear(9, 9)
-
-        self.data_field = data.Field(pad_token = 0)
+        self.name = "cnnrnn"
+        self.linear = nn.Linear(3 * num_filters, 3 * num_filters)
 
     def forward(self, sequence):
+
+        # print("Sequence initial shape: ", sequence.shape)
         embedded = self.char_embedding(sequence)
+        # print("Sequence embeddings shape: ", embedded.shape)
+
         bsz, seq_length, char_length, emb_dim = embedded.shape
         embedded = torch.transpose(embedded.view(bsz * seq_length, char_length, emb_dim), 1, 2)
+        # print("flattened ready for conv: ", embedded.shape)
+        # print("Time: ", char_length)
         out = self.relu(self.conv1(embedded))
         out = self.dropout(out)
+        # print("Size after first cnv", out.shape)
 
         out_3 = self.relu(self.conv2_3(out))
         out_4 = self.relu(self.conv2_4(out))
         out_5 = self.relu(self.conv2_5(out))
+        # print("Sizes 3 convs: ", out_3.shape, out_4.shape, out_5.shape)
 
         maxpool_3 = nn.MaxPool1d(out_3.shape[2])
         maxpool_4 = nn.MaxPool1d(out_4.shape[2])
         maxpool_5 = nn.MaxPool1d(out_5.shape[2])
+
         y_3 = maxpool_3(out_3).squeeze(-1)
         y_4 = maxpool_4(out_4).squeeze(-1)
         y_5 = maxpool_5(out_5).squeeze(-1)
+        # print("Sizes after maxpool: ", y_3.shape, y_4.shape, y_5.shape)
 
         y = torch.cat([y_3, y_4, y_5], 1)
+        # print("Concatenated size: ", y.shape)
 
         residual = self.linear(y)
 
-        z = y + residual
+        z = y + self.relu(residual)
+        # print("Z shape: ", z.shape)
         z = z.view(bsz, seq_length, -1)
+        # print("Z reshapen: ", z.shape)
 
         out, _ = self.lstm(z)
+        # print("SHape after LSTM: ", out.shape)
         output = self.linear_lstm(out)
+        # print("Final oout: ", output.shape)
 
         log_probs = F.log_softmax(output, 2)
 

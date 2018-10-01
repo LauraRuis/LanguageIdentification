@@ -10,7 +10,7 @@ from torch.optim import adam
 
 from CodeSwitching.model import Model, RecurrentModel, GRUIdentifier
 from CodeSwitching.test import test, calculate_accuracy
-from CodeSwitching.utils import save_model
+from CodeSwitching.utils import save_model, PAD_TOKEN
 
 
 def train(optimizer: adam=None, model: Model=None,
@@ -25,9 +25,6 @@ def train(optimizer: adam=None, model: Model=None,
 
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
-
-    # NLLLoss for using the log_softmax in the recurrent model
-    loss_function = torch.nn.NLLLoss(ignore_index = 1)
 
     if not resume:
         best_train_acc, best_val_acc, best_test_acc = 0, 0, 0
@@ -54,10 +51,17 @@ def train(optimizer: adam=None, model: Model=None,
                 sequence = batch.characters[0]
                 lengths = batch.characters[1]
                 target = batch.language_per_char[0]
+                # sequence = sequence[]
+                # NLLLoss for using the log_softmax in the recurrent model
+                pad_idx = training_data.dataset.fields['characters'].vocab.stoi[PAD_TOKEN]
+                loss_function = torch.nn.NLLLoss(ignore_index=pad_idx)
             else:
                 sequence = batch.paragraph[0]
                 lengths = batch.paragraph[1]
                 target = batch.language_per_word[0]
+                # NLLLoss for using the log_softmax in the recurrent model
+                pad_idx = training_data.dataset.fields['paragraph'].vocab.stoi[PAD_TOKEN]
+                loss_function = torch.nn.NLLLoss(ignore_index=pad_idx)
 
             batch_size = sequence.shape[0]
 
@@ -66,9 +70,8 @@ def train(optimizer: adam=None, model: Model=None,
             else:
                 predictions = model.forward(sequence)
 
-            loss = 0
-            for k in range(sequence.shape[1]):
-                loss += loss_function(predictions[:, k], target[:, k])
+            bsz, time, n_languages = predictions.shape
+            loss = loss_function(predictions.view(bsz * time, n_languages), target.view(-1))
             epoch_losses.append(loss.item())
 
             _, predicted_languages = torch.topk(predictions, 1)
