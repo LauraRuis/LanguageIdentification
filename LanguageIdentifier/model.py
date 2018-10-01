@@ -18,12 +18,14 @@ class RecurrentModel(nn.Module): # General recurrent class, because I want to cr
 
 class GRUIdentifier(RecurrentModel):
     def __init__(self, vocab_size : int, n_classes : int, embedding_dim : int,
-                 hidden_dim : int, bidirectional : bool, **kwargs):
+                 hidden_dim : int, bidirectional : bool, dropout_p : float,
+                 **kwargs):
         super().__init__()
 
         self.hidden_dim = hidden_dim
         self.bidirectional = bidirectional
         self.embeddings = nn.Embedding(vocab_size, embedding_dim)
+        self.dropout = nn.Dropout(dropout_p)
         self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim, bidirectional=bidirectional)
         if bidirectional:
             self.hidden2label = nn.Linear(2*hidden_dim, n_classes)
@@ -43,6 +45,7 @@ class GRUIdentifier(RecurrentModel):
 
         batch_size = sentence.shape[0]
         x = self.embeddings(torch.transpose(sentence, 0, 1))  # time, batch, dim
+        x = self.dropout(x)
         packed_x = pack_padded_sequence(x, lengths)
 
         # Recurrent part
@@ -50,18 +53,14 @@ class GRUIdentifier(RecurrentModel):
         recurrent_out, hidden_out = self.gru(packed_x, hidden_in)
         recurrent_out, _ = pad_packed_sequence(recurrent_out)
 
-        # Classification
-
-        # FIXME: take final recurrent state or..
+        # Unpack packed sequences
         recurrent_out = torch.transpose(recurrent_out, 1, 0)  # batch, time, dim
         dim = recurrent_out.size(2)
         indices = lengths.view(-1, 1).unsqueeze(2).repeat(1, 1, dim) - 1
         indices = indices.cuda() if torch.cuda.is_available() else indices
         final_states = torch.squeeze(torch.gather(recurrent_out, 1, indices), dim=1)
 
-        # FIXME: take hidden state
-        y = self.hidden2label(hidden_out.squeeze())
-
+        # Classification
         y = self.hidden2label(final_states)
 
         if len(y.shape) == 1:
@@ -72,41 +71,39 @@ class GRUIdentifier(RecurrentModel):
 
 class CharModel(nn.Module):
 
-  def __init__(self, n_chars, padding_idx, emb_dim=30, output_dim=50, dropout_p=0.5, embed_chars=True):
-    super(CharModel, self).__init__()
+    def __init__(self, n_chars, padding_idx, emb_dim=30, output_dim=50, dropout_p=0.5, embed_chars=True):
+        super(CharModel, self).__init__()
 
-    self.input_dim = n_chars
-    self.output_dim = output_dim
-    self.dropout_p = dropout_p
-    self.padding_idx = padding_idx
-    self.emb_dim = emb_dim
-    self.embed_chars = embed_chars
+        self.input_dim = n_chars
+        self.output_dim = output_dim
+        self.dropout_p = dropout_p
+        self.padding_idx = padding_idx
+        self.emb_dim = emb_dim
+        self.embed_chars = embed_chars
 
-    if embed_chars:
-        self.embeddings = nn.Embedding(n_chars, emb_dim, padding_idx=padding_idx)
-        self.init_embedding()
+        if embed_chars:
+            self.embeddings = nn.Embedding(n_chars, emb_dim, padding_idx=padding_idx)
+            self.init_embedding()
 
-    self.char_emb_dropout = nn.Dropout(p=dropout_p)
+        self.char_emb_dropout = nn.Dropout(p=dropout_p)
 
-  def init_embedding(self):
-    init_range = math.sqrt(3 / self.emb_dim)
-    embed = self.embeddings.weight.clone()
-    embed.uniform_(-init_range, init_range)
-    self.embeddings.weight.data.copy_(embed)
+    def init_embedding(self):
+        init_range = math.sqrt(3 / self.emb_dim)
+        embed = self.embeddings.weight.clone()
+        embed.uniform_(-init_range, init_range)
+        self.embeddings.weight.data.copy_(embed)
 
-  def forward(self, sentence: Variable) -> torch.Tensor:
+    def forward(self, sentence: Variable) -> torch.Tensor:
+        # embed characters
+        if self.embed_chars:
+            embedded = self.embeddings(sentence)
+            embedded = self.char_emb_dropout(embedded)
+        else:
+            embedded = sentence
 
-      # embed characters
-      if self.embed_chars:
-          embedded = self.embeddings(sentence)
-          embedded = self.char_emb_dropout(embedded)
-      else:
-          embedded = sentence
-
-      # character model
-      output = self.char_model(embedded)
-
-      return output
+        # character model
+        output = self.char_model(embedded)
+        return output
 
 
 class SmallCNN(CharModel):
@@ -146,86 +143,80 @@ class SmallCNN(CharModel):
 
 class CharCNN(CharModel):
 
-  def __init__(self, n_chars, padding_idx, emb_dim, dropout_p, n_classes, length):
+    def __init__(self, n_chars, padding_idx, emb_dim, dropout_p, n_classes, length):
+        super(CharCNN, self).__init__(n_chars, padding_idx, emb_dim=emb_dim, output_dim=100,
+                                      dropout_p=dropout_p, embed_chars=False)
 
-    super(CharCNN, self).__init__(n_chars, padding_idx, emb_dim=emb_dim, output_dim=100,
-                                  dropout_p=dropout_p, embed_chars=False)
+        self.n_chars = n_chars
+        # in_channels, out_channels, kernel_size, stride, padding
+        conv_stride = 1
+        max_pool_kernel_size = 3
+        max_pool_stride = 3
+        padding = 0
+        conv_spec_1 = dict(in_channels=n_chars, out_channels=256, kernel_size=7, padding=0)
+        conv_spec_2 = dict(in_channels=256, out_channels=256, kernel_size=7, padding=0)
+        conv_spec_3 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=0)
+        conv_spec_4 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=0)
+        conv_spec_5 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=0)
+        conv_spec_6 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=0)
+        network = [conv_spec_1, 'MaxPool', conv_spec_2, 'MaxPool', conv_spec_3,
+                   conv_spec_4, conv_spec_5, conv_spec_6, 'MaxPool']
 
-    self.n_chars = n_chars
-    # in_channels, out_channels, kernel_size, stride, padding
-    conv_stride = 1
-    max_pool_kernel_size = 3
-    max_pool_stride = 3
-    padding = 0
-    conv_spec_1 = dict(in_channels=n_chars, out_channels=256, kernel_size=7, padding=0)
-    conv_spec_2 = dict(in_channels=256, out_channels=256, kernel_size=7, padding=0)
-    conv_spec_3 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=0)
-    conv_spec_4 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=0)
-    conv_spec_5 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=0)
-    conv_spec_6 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=0)
-    network = [conv_spec_1, 'MaxPool', conv_spec_2, 'MaxPool', conv_spec_3,
-               conv_spec_4, conv_spec_5, conv_spec_6, 'MaxPool']
+        layers = []
+        for layer in network:
+            if layer == 'MaxPool':
+                layers.append(nn.MaxPool1d(kernel_size=max_pool_kernel_size, stride=max_pool_stride, padding=padding))
+            else:
+                conv = nn.Conv1d(layer['in_channels'], layer['out_channels'],
+                                 kernel_size=layer['kernel_size'], stride=conv_stride, padding=layer['padding'])
+                relu = nn.ReLU(inplace=True)
+                layers.extend([conv, relu])
 
-    layers = []
-    for layer in network:
+        self.layers = nn.Sequential(*layers)
+        self.fc1 = nn.Linear(int((length - 96)/27) * 256, 1024)
+        self.fc2 = nn.Linear(1024, 1024)
+        self.classifier = nn.Linear(1024, n_classes)
+        self.gaussian_init()
 
-        if layer == 'MaxPool':
-            layers.append(nn.MaxPool1d(kernel_size=max_pool_kernel_size, stride=max_pool_stride, padding=padding))
-        else:
-            conv = nn.Conv1d(layer['in_channels'], layer['out_channels'],
-                             kernel_size=layer['kernel_size'], stride=conv_stride, padding=layer['padding'])
-            relu = nn.ReLU(inplace=True)
-            layers.extend([conv, relu])
+    def gaussian_init(self, mean=0., std=0.05):
+        for name, weight in self.named_parameters():
+            if len(weight.size()) > 1:
+                nn.init.normal_(weight.data, mean=mean, std=std)
+            elif "bias" in name:
+                weight.data.fill_(0.)
 
-    self.layers = nn.Sequential(*layers)
-    self.fc1 = nn.Linear(int((length - 96)/27) * 256, 1024)  # source:
-    self.fc2 = nn.Linear(1024, 1024)
-    self.classifier = nn.Linear(1024, n_classes)
-
-    self.gaussian_init()
-
-  def gaussian_init(self, mean=0., std=0.05):
-
-      for name, weight in self.named_parameters():
+    def xavier_uniform(self, gain=1.):
+        # default pytorch initialization
+        for name, weight in self.named_parameters():
           if len(weight.size()) > 1:
-              nn.init.normal_(weight.data, mean=mean, std=std)
+              nn.init.xavier_uniform_(weight.data, gain=gain)
           elif "bias" in name:
-              weight.data.fill_(0.)
+            weight.data.fill_(0.)
 
-  def xavier_uniform(self, gain=1.):
+    def one_hot(self, data):
+        batch_size, time = data.shape
+        flattened = data.view(-1).unsqueeze(1)
 
-    # default pytorch initialization
-    for name, weight in self.named_parameters():
-      if len(weight.size()) > 1:
-          nn.init.xavier_uniform_(weight.data, gain=gain)
-      elif "bias" in name:
-        weight.data.fill_(0.)
+        # One hot encoding buffer that you create out of the loop and just keep reusing
+        y_onehot = torch.FloatTensor(batch_size * time, self.n_chars)
+        y_onehot = y_onehot.cuda() if torch.cuda.is_available() else y_onehot
 
-  def one_hot(self, data):
+        # In your for loop
+        y_onehot.zero_()
+        y_onehot.scatter_(1, flattened, 1)
+        return y_onehot.view(batch_size, time, self.n_chars)
 
-      batch_size, time = data.shape
-      flattened = data.view(-1).unsqueeze(1)
 
-      # One hot encoding buffer that you create out of the loop and just keep reusing
-      y_onehot = torch.FloatTensor(batch_size * time, self.n_chars)
-      y_onehot = y_onehot.cuda() if torch.cuda.is_available() else y_onehot
-
-      # In your for loop
-      y_onehot.zero_()
-      y_onehot.scatter_(1, flattened, 1)
-      return y_onehot.view(batch_size, time, self.n_chars)
-
-  def char_model(self, embedded=None):
-
-    embedded = self.one_hot(embedded)
-    embedded = torch.transpose(embedded, 1, 2)  # (bsz, dim, time)
-    bsz = embedded.shape[0]
-    chars_conv = self.layers(embedded)
-    output = self.fc1(chars_conv.view(bsz, -1))
-    output = self.char_emb_dropout(output)
-    output = self.fc2(output)
-    output = self.char_emb_dropout(output)
-    labels = self.classifier(output)
-    log_probs = F.log_softmax(labels, 1)
-
-    return log_probs
+    def char_model(self, embedded=None):
+        embedded = self.one_hot(embedded)
+        embedded = torch.transpose(embedded, 1, 2)  # (bsz, dim, time)
+        bsz = embedded.shape[0]
+        chars_conv = self.layers(embedded)
+        # chars_conv = F.max_pool1d(chars_conv, kernel_size=chars_conv.size(2)).squeeze(2)
+        output = self.fc1(chars_conv.view(bsz, -1))
+        output = self.char_emb_dropout(output)
+        output = self.fc2(output)
+        output = self.char_emb_dropout(output)
+        labels = self.classifier(output)
+        log_probs = F.log_softmax(labels, 1)
+        return log_probs

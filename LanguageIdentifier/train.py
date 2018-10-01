@@ -94,7 +94,7 @@ def train(par_optimizer: adam=None, model: Model=None,
                     i, j, round(loss.item(), 4), round(train_accuracy, 2), round(validation_accuracy, 2)))
                 if validation_accuracy > best_val_acc:
                     best_train_acc = train_accuracy
-                    test_accuracy = test(model, testing_data)
+                    test_accuracy = test(model, testing_data, True)
                     best_test_acc = test_accuracy
                     best_val_acc = validation_accuracy
                     output_dir = cfg["output_dir"]

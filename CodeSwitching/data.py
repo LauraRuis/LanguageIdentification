@@ -18,14 +18,20 @@ def get_data_fields() -> dict:
     """"
     Creates torchtext fields for the I/O pipeline.
     """
-    language_per_word = Field(include_lengths=True, batch_first=True, init_token=None, 
+    language_per_word = Field(include_lengths=True, batch_first=True, init_token=None,
                               eos_token=END_TOKEN, pad_token=PAD_TOKEN)
-    language_per_char = Field(include_lengths=True, batch_first=True, init_token=None, 
+    language_per_char = Field(include_lengths=True, batch_first=True, init_token=None,
                               eos_token=END_TOKEN, pad_token=PAD_TOKEN)
     characters = Field(include_lengths=True, batch_first=True, init_token=None,
                        eos_token=END_TOKEN, pad_token=PAD_TOKEN)
     paragraph = Field(include_lengths=True, batch_first=True, init_token=None,
                       eos_token=END_TOKEN, pad_token=PAD_TOKEN)
+
+    nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
+                          init_token=START_TOKEN, eos_token=END_TOKEN)
+
+    paragraph = NestedField(nesting_field, pad_token=PAD_TOKEN, eos_token=END_TOKEN,
+                            include_lengths=True)
 
     fields = {
         'characters': ('characters', characters),
@@ -136,7 +142,7 @@ class WiLIDataset(Dataset):
         super(WiLIDataset, self).__init__(examples, fields, **kwargs)
 
 
-def load_data(training_text: str, training_labels: str, training_switch : str, 
+def load_data(training_text: str, training_labels: str, training_switch : str,
               testing_text: str, testing_labels: str, testing_switch: str,
               validation_text: str, validation_labels: str, validation_switch : str,
               level : str, **kwargs) -> (WiLIDataset, WiLIDataset, WiLIDataset):
