@@ -178,7 +178,7 @@ class CharCNN(CharModel):
             layers.extend([conv, relu])
 
     self.layers = nn.Sequential(*layers)
-    self.fc1 = nn.Linear(int((length - 96)/27) * 256, 1024)
+    self.fc1 = nn.Linear(int((length - 96)/27) * 256, 1024)  # source:
     self.fc2 = nn.Linear(1024, 1024)
     self.classifier = nn.Linear(1024, n_classes)
 
@@ -221,7 +221,6 @@ class CharCNN(CharModel):
     embedded = torch.transpose(embedded, 1, 2)  # (bsz, dim, time)
     bsz = embedded.shape[0]
     chars_conv = self.layers(embedded)
-    # chars_conv = F.max_pool1d(chars_conv, kernel_size=chars_conv.size(2)).squeeze(2)
     output = self.fc1(chars_conv.view(bsz, -1))
     output = self.char_emb_dropout(output)
     output = self.fc2(output)
