@@ -208,15 +208,24 @@ class CharCNN(CharModel):
 
 
     def char_model(self, embedded=None):
+
+        # one hot vector
         embedded = self.one_hot(embedded)
         embedded = torch.transpose(embedded, 1, 2)  # (bsz, dim, time)
+
+        # conv net
         bsz = embedded.shape[0]
         chars_conv = self.layers(embedded)
-        # chars_conv = F.max_pool1d(chars_conv, kernel_size=chars_conv.size(2)).squeeze(2)
+
+        # fully connected layers
         output = self.fc1(chars_conv.view(bsz, -1))
         output = self.char_emb_dropout(output)
         output = self.fc2(output)
+
+        # dropout and classify
         output = self.char_emb_dropout(output)
         labels = self.classifier(output)
+
+        # softmax
         log_probs = F.log_softmax(labels, 1)
         return log_probs

@@ -149,6 +149,8 @@ class CNNRNN(nn.Module):
         self.lstm = nn.LSTM(3, 128, num_layers=1, bidirectional=True)
         self.linear_lstm = nn.Linear(128 * 2, n_classes)
 
+        self.linear = nn.Linear(9, 9)
+
         self.data_field = data.Field(pad_token = 0)
 
     def forward(self, sequence):
@@ -171,8 +173,7 @@ class CNNRNN(nn.Module):
 
         y = torch.cat([y_3, y_4, y_5], 1)
 
-        linear = nn.Linear(y.shape[-1], y.shape[-1])
-        residual = linear(y)
+        residual = self.linear(y)
 
         z = y + residual
         z = z.view(bsz, seq_length, -1)
