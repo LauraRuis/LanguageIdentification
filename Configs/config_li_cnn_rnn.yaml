@@ -7,3 +7,4 @@ embedding_dim : 80
 max_chars : 250
 model_type : "cnn_rnn"
 level : "word"
+split_paragraphs : True
