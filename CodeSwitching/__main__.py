@@ -6,6 +6,7 @@ from torchtext.data import Iterator
 import os
 import math
 
+from CodeSwitching.test import test
 from CodeSwitching.train import train
 from CodeSwitching.data import load_data
 from CodeSwitching.model import GRUIdentifier, CharCNN, CNNRNN
@@ -14,7 +15,7 @@ from CodeSwitching.utils import PAD_TOKEN
 def main():
     # torch.backends.cudnn.enabled=False
     ap = argparse.ArgumentParser(description="a Language Identification model")
-    ap.add_argument('--mode', choices=['train', 'predict'], default='train')
+    ap.add_argument('--mode', choices=['train', 'predict', 'test'], default='train')
     ap.add_argument('--output_dir', type=str, default='output')
 
     # data arguments
@@ -38,7 +39,7 @@ def main():
     # logging parameters
     ap.add_argument('--eval_frequency', type=int, default=100)
     ap.add_argument('--log_frequency', type=int, default=100)
-    ap.add_argument('--resume_from_file', type=str, default="")
+    ap.add_argument('--from_file', type=str, default="")
 
     # Recurrent model settings
     ap.add_argument('--embedding_dim', type=int, default=100)
@@ -64,7 +65,7 @@ def main():
         training_iterator = Iterator(training_data, cfg['batch_size'], train=True,
                                      sort_within_batch=True, device=device, repeat=False)
         validation_iterator = Iterator(validation_data, cfg['batch_size'], train=False, sort_within_batch=True,
-                                       device=-1, repeat=False)
+                                       device=device, repeat=False)
     testing_iterator = Iterator(testing_data, cfg['batch_size'], train=False,
                                 sort_within_batch=True, device=device, repeat=False)
 
@@ -75,15 +76,11 @@ def main():
 
     if cfg['mode'] == 'train':
 
-        # Calculate args needed for recurrent model, move these lines if used
-        # by other models / pieces of code
-
         if cfg['level'] == 'char':
             vocab_size = len(training_data.fields['characters'].vocab)
         else:
             vocab_size = len(training_data.fields['paragraph'].vocab)
         n_classes = len(training_data.fields['language_per_word'].vocab)
-
         # Initialise a new model
         if cfg['model_type'] == 'recurrent':
             model = GRUIdentifier(vocab_size, n_classes, **cfg)
@@ -97,9 +94,12 @@ def main():
             char_vocab_size = len(training_data.fields['characters'].vocab)
             d = round(math.log(abs(char_vocab_size)))
             model = CNNRNN(char_vocab_size, d, vocab_size, n_classes, num_filters=50, kernel_size=3, n1=1, n2=1)
-
         else:
             raise NotImplementedError()
+        model.to(device)
+
+        # Calculate args needed for recurrent model, move these lines if used
+        # by other models / pieces of cod
 
         print("Vocab. size word: ", len(training_data.fields['paragraph'].vocab))
         print("First 10 words: ", " ".join(training_data.fields['paragraph'].vocab.itos[:10]))
@@ -110,11 +110,11 @@ def main():
 
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg["learning_rate"])
 
-        if cfg["resume_from_file"]:
+        if cfg["from_file"]:
 
-           if os.path.isfile(cfg["resume_from_file"]):
+           if os.path.isfile(cfg["from_file"]):
 
-               file = cfg["resume_from_file"]
+               file = cfg["from_file"]
                print("Loading model from file '{}'".format(file))
                resume_state = torch.load(file)
                model.load_state_dict(resume_state['state_dict'])
@@ -123,7 +123,7 @@ def main():
                      .format(file, resume_state['epoch']))
            else:
                resume_state = None
-               print("=> no checkpoint found at '{}'".format(cfg["resume_from_file"]))
+               print("=> no checkpoint found at '{}'".format(cfg["from_file"]))
         else:
             resume_state = None
 
@@ -134,9 +134,16 @@ def main():
               resume_state=resume_state, **cfg)
 
     elif cfg['mode'] == 'test':  # Let's separate test from inference mode
-        raise NotImplementedError()
-        # Load model
-        # Run test() from test.py
+        if os.path.isfile(cfg["from_file"]):
+            file = cfg["from_file"]
+            print("Loading model from file '{}'".format(file))
+            model = torch.load(file)
+            tp, cl = test(model, testing_iterator, cfg['level'], True)
+            print("Test results: text partitioning {:.4f}, classification {:.4f}.".format(tp, cl))
+        else:
+            resume_state = None
+            print("=> no checkpoint found at '{}'".format(cfg["from_file"]))
+
     elif cfg['mode'] == 'predict':  # Let's separate test from inference mode
         raise NotImplementedError()
 
