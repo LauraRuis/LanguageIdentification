@@ -27,12 +27,12 @@ class GRUIdentifier(RecurrentModel):
         self.bidirectional = bidirectional
         self.embeddings = nn.Embedding(vocab_size, embedding_dim)
         self.embeddings_dropout = nn.Dropout(0.2)
+        self.n_classes = n_classes
         self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim, bidirectional=bidirectional, dropout=0.5)
 
         h0_tensor = torch.Tensor(1, hidden_dim)
         nn.init.xavier_normal_(h0_tensor, gain=1.)
         self.h_0_init = nn.Parameter(h0_tensor)
-
         self.vocab = vocab
 
         for layer_p in self.gru._all_weights:
@@ -163,6 +163,7 @@ class CNNRNN(nn.Module):
         self.conv2_5 = nn.Conv1d(n1, num_filters, 5)
         self.dropout = nn.Dropout(p=0.25)
         self.lstm = nn.LSTM(3 * num_filters, 128, num_layers=1, bidirectional=True)  # TODO fix back
+        self.n_classes = n_classes
 
         self.hidden_dim = 128
         self.bidirectional = True

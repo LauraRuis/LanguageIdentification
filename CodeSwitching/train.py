@@ -77,11 +77,11 @@ def train(optimizer: adam=None, model: Model=None,
             _, predicted_languages = torch.topk(predictions, 1)
 
             # Save data needed to calculate accuracy for later
-            batch_accuracy_tp, batch_accuracy_cl = calculate_accuracy(predictions, target, lengths)
+            batch_accuracy_tp, batch_f_micro = calculate_accuracy(predictions, target, lengths, model.n_classes)
             batch_accuracies["TP"].append(batch_accuracy_tp)
-            batch_accuracies["CL"].append(batch_accuracy_cl)
+            batch_accuracies["CL"].append(batch_f_micro)
             epoch_accuracies["TP"].append(batch_accuracy_tp)
-            epoch_accuracies["CL"].append(batch_accuracy_cl)
+            epoch_accuracies["CL"].append(batch_f_micro)
 
 
             # Update the weights
@@ -89,30 +89,30 @@ def train(optimizer: adam=None, model: Model=None,
             optimizer.step()
 
             if (j + 1) % cfg["log_frequency"] == 0:
-                print(datetime.datetime.now(), " Logging: Epoch: {} | Iter: {} | Loss: {:.4f} | Batch acc. CL: {:.2f} | Batch acc. TP: {:.2f}".format(
-                    i, j, loss.item(), batch_accuracies["CL"][-1], batch_accuracies["TP"][-1]))
+                print(datetime.datetime.now(), " Logging: Epoch {} | Iter {} | Loss {:.4f} | Batch F-micro {:.2f} | Batch acc. TP {:.2f}".format(
+                    i + 1, j + 1, loss.item(), batch_accuracies["CL"][-1], batch_accuracies["TP"][-1]))
 
             if (j + 1) % cfg["eval_frequency"] == 0:
-                train_accuracy_cl = np.array(batch_accuracies["CL"]).mean()
+                train_f_micro = np.array(batch_accuracies["CL"]).mean()
                 train_accuracy_tp = np.array(batch_accuracies["TP"]).mean()
 
                 batch_accuracies = {"TP" : [], "CL" : []}
-                validation_accuracy_tp, validation_accuracy_cl = test(model, validation_data, level)
-                print(datetime.datetime.now(), " Evaluation: Epoch: {} | Iter: {} | Loss: {} | "
-                      "Av. Batch Train acc. CL {:.4f}| Batch Train acc. TP {:.4f}| | Validation acc. CL {:.2f} | Validation acc. TP {:.2f}".format(
-                      i, j, loss.item(), train_accuracy_cl, train_accuracy_tp, validation_accuracy_cl, validation_accuracy_tp
+                validation_accuracy_tp, validation_f_micro, _ = test(model, validation_data, level)
+                print(datetime.datetime.now(), " Evaluation: Epoch {} | Iter {} | Loss {} | "
+                      "Av. Batch Train F-micro {:.4f}| Batch Train acc. TP {:.4f}| Validation F-micro {:.2f} | Validation acc. TP {:.2f}".format(
+                      i + 1, j + 1, loss.item(), train_f_micro, train_accuracy_tp, validation_f_micro, validation_accuracy_tp
                 ))
-                if validation_accuracy_cl > best_val_acc:
-                    best_train_acc_cl = train_accuracy_cl
+                if validation_f_micro > best_val_acc:
+                    best_train_f_micro = train_f_micro
                     best_train_acc_tp = train_accuracy_tp
-                    best_val_acc = validation_accuracy_cl
+                    best_val_acc = validation_f_micro
                     output_dir = cfg["output_dir"]
                     save_model(output_dir,
                                {
                                    'epoch': i,
                                    'state_dict': model.state_dict(),
-                                   'train_acc_cl': train_accuracy_cl,
-                                   'val_acc_cl': validation_accuracy_cl,
+                                   'train_f_micro': train_f_micro,
+                                   'val_f_micro': validation_f_micro,
                                    'train_acc_tp': train_accuracy_tp,
                                    'val_acc_tp': validation_accuracy_tp,
                                    'optimizer': optimizer.state_dict(),
@@ -121,19 +121,19 @@ def train(optimizer: adam=None, model: Model=None,
                     torch.save(model, output_dir + "/" + cfg["model_type"] + "_best_model.pt")
 
         train_accuracy_tp = np.array(epoch_accuracies["TP"]).mean()
-        train_accuracy_cl = np.array(epoch_accuracies["CL"]).mean()
+        train_f_micro = np.array(epoch_accuracies["CL"]).mean()
 
         epoch_accuracies = {"TP" : [], "CL" : []}
-        validation_accuracy_tp, validation_accuracy_cl = test(model, validation_data, level)
-        test_accuracy_tp, test_accuracy_cl = test(model, testing_data, level)
+        validation_accuracy_tp, validation_f_micro, _ = test(model, validation_data, level)
+        test_accuracy_tp, test_f_micro, test_f_macro = test(model, testing_data, level)
 
         print(datetime.datetime.now(), " Epoch: {} finished | Average loss: {:.4f} | "
-              "Av. Batch Train accuracy CL: {:.2f} | Av. Batch Train accuracy TP: {:.2f} | Validation acc. CL {:.2f} | Validation acc. TP {:.2f}".format(
-              i + 1, np.mean(np.array(epoch_losses)), train_accuracy_cl, train_accuracy_tp, validation_accuracy_cl, validation_accuracy_tp
+              "Av. Batch Train F-micro {:.2f} | Av. Batch Train accuracy TP {:.2f} | Validation F-micro {:.2f} | Validation acc. TP {:.2f}".format(
+              i + 1, np.mean(np.array(epoch_losses)), train_f_micro, train_accuracy_tp, validation_f_micro, validation_accuracy_tp
         ))
 
     print(datetime.datetime.now(), " Done training.")
-    print("Best model: Train accuracy CL: {:.2f} | Train accuracy TP: {:.2f} | Validation acc. CL {:.2f} | Validation acc. TP {:.2f} \
-          | Test acc. CL {:.2f} | Test acc. TP {:.2f} | ".format(
-          best_train_acc_cl, best_train_acc_tp, validation_accuracy_cl, validation_accuracy_tp, test_accuracy_cl, test_accuracy_tp
+    print("Best model: Train F-micro: {:.2f} | Train accuracy TP: {:.2f} | Validation F-micro {:.2f} | Validation acc. TP {:.2f}\
+          | Test F-micro {:.2f} | Test F-macro {:.2f} | Test acc. TP {:.2f} | ".format(
+          best_train_f_micro, best_train_acc_tp, validation_f_micro, validation_accuracy_tp, test_f_micro, test_f_macro, test_accuracy_tp
     ))
