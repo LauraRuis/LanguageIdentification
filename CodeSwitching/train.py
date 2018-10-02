@@ -8,9 +8,9 @@ import datetime
 from torchtext.data import Iterator
 from torch.optim import adam
 
-from  model import Model, RecurrentModel, GRUIdentifier
-from test import test, calculate_accuracy
-from utils import save_model, PAD_TOKEN
+from CodeSwitching.model import Model, RecurrentModel, GRUIdentifier
+from CodeSwitching.test import test, calculate_accuracy
+from CodeSwitching.utils import save_model, PAD_TOKEN
 
 
 def train(optimizer: adam=None, model: Model=None,
