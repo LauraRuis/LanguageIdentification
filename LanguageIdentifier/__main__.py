@@ -96,8 +96,8 @@ def main():
             model = GRUIdentifier(char_vocab_size, n_classes, **cfg)
         elif cfg['model_type'] == 'small_cnn':
             padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
-            model = SmallCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"], dropout_p=0.33, num_filters=30,
-                             window_size=3, n_classes=n_classes)
+            model = SmallCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"], dropout_p=0, num_filters=60,
+                             window_size=5, n_classes=n_classes)
         elif cfg['model_type'] == 'large_cnn':
             padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
             model = CharCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"],

@@ -126,11 +126,12 @@ class SmallCNN(CharModel):
         super(SmallCNN, self).__init__(n_chars, padding_idx, emb_dim=emb_dim,  output_dim=100, dropout_p=dropout_p,
                                        embed_chars=True)
 
-        self.conv1 = nn.Conv1d(emb_dim, num_filters, window_size, padding=window_size - 1)
+        self.conv1 = nn.Conv1d(emb_dim, num_filters, 5, padding=5 - 1)
         self.conv2 = nn.Conv1d(num_filters, num_filters, window_size, padding=window_size - 1)
         self.xavier_uniform(name="conv1")
         self.xavier_uniform(name="conv2")
         self.hidden2label = nn.Linear(num_filters, n_classes)
+        self.relu = nn.ReLU()
 
     def xavier_uniform(self, name="", gain=1.):
 
@@ -147,7 +148,7 @@ class SmallCNN(CharModel):
         if not self.train:
             print("Time: {}".format(embedded.shape[2]))
         chars_conv = self.conv1(embedded)
-        chars_conv = self.conv2(chars_conv)
+        chars_conv = self.relu(self.conv2(chars_conv))
         chars = F.max_pool1d(chars_conv, kernel_size=chars_conv.size(2)).squeeze(2)
         labels = self.hidden2label(chars)
         log_probs = F.log_softmax(labels, 1)
