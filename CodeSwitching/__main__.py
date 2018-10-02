@@ -2,9 +2,11 @@
 
 import argparse
 import torch
-from torchtext.data import Iterator
 import os
+import yaml
 import math
+import numpy as np
+from torchtext.data import Iterator
 
 from CodeSwitching.test import test
 from CodeSwitching.train import train
@@ -14,28 +16,28 @@ from CodeSwitching.utils import PAD_TOKEN
 
 
 def main():
-    # torch.backends.cudnn.enabled=False
     ap = argparse.ArgumentParser(description="a Language Identification model")
     ap.add_argument('--mode', choices=['train', 'predict', 'test'], default='train')
     ap.add_argument('--output_dir', type=str, default='output')
+    ap.add_argument('--config', type=str, default=None)
 
     # data arguments
-    ap.add_argument('--training_text', type=str, default='../Data/CodeSwitching/trn_sentences.txt')
-    ap.add_argument('--training_labels', type=str, default='../Data/CodeSwitching/trn_lang_labels.txt')
-    ap.add_argument('--training_switch', type=str, default='../Data/CodeSwitching/trn_switch_labels.txt')
-    ap.add_argument('--validation_text', type=str, default='../Data/CodeSwitching/dev_sentences.txt')
-    ap.add_argument('--validation_labels', type=str, default='../Data/CodeSwitching/dev_lang_labels.txt')
-    ap.add_argument('--validation_switch', type=str, default='../Data/CodeSwitching/dev_switch_labels.txt')
-    ap.add_argument('--testing_text', type=str, default='../Data/CodeSwitching/tst_sentences.txt')
-    ap.add_argument('--testing_labels', type=str, default='../Data/CodeSwitching/tst_lang_labels.txt')
-    ap.add_argument('--testing_switch', type=str, default='../Data/CodeSwitching/tst_switch_labels.txt')
-    ap.add_argument('--level', type=str, choices=['word', 'char'], default='char')
+    ap.add_argument('--training_text', type=str, default='Data/CodeSwitching/trn_sentences.txt')
+    ap.add_argument('--training_labels', type=str, default='Data/CodeSwitching/trn_lang_labels.txt')
+    ap.add_argument('--training_switch', type=str, default='Data/CodeSwitching/trn_switch_labels.txt')
+    ap.add_argument('--validation_text', type=str, default='Data/CodeSwitching/dev_sentences.txt')
+    ap.add_argument('--validation_labels', type=str, default='Data/CodeSwitching/dev_lang_labels.txt')
+    ap.add_argument('--validation_switch', type=str, default='Data/CodeSwitching/dev_switch_labels.txt')
+    ap.add_argument('--testing_text', type=str, default='Data/CodeSwitching/tst_sentences.txt')
+    ap.add_argument('--testing_labels', type=str, default='Data/CodeSwitching/tst_lang_labels.txt')
+    ap.add_argument('--testing_switch', type=str, default='Data/CodeSwitching/tst_switch_labels.txt')
 
     # general model parameters
     ap.add_argument('--model_type', type=str, default='recurrent')
     ap.add_argument('--learning_rate', type=float, default=1e-3)
-    ap.add_argument('--batch_size', type=int, default=100)
+    ap.add_argument('--batch_size', type=int, default=16)
     ap.add_argument('--epochs', type=int, default=10)
+    ap.add_argument('--level', type=str, choices=['word', 'char'], default='char')
 
     # logging parameters
     ap.add_argument('--eval_frequency', type=int, default=100)
@@ -43,11 +45,15 @@ def main():
     ap.add_argument('--from_file', type=str, default="")
 
     # Recurrent model settings
-    ap.add_argument('--embedding_dim', type=int, default=100)
-    ap.add_argument('--hidden_dim', type=int, default=100)
+    ap.add_argument('--embedding_dim', type=int, default=30)
+    ap.add_argument('--hidden_dim', type=int, default=300)
     ap.add_argument('--bidirectional', action='store_true')
 
     cfg = vars(ap.parse_args())
+    # Allow both the usage of a config file and of command line arguments
+    if cfg["config"] is not None:
+        with open(cfg["config"]) as f: yaml_config = yaml.load(f)
+        cfg.update(yaml_config)
 
     print("Parameters:")
     for k, v in cfg.items():
@@ -67,40 +73,38 @@ def main():
                                      sort_within_batch=True, device=device, repeat=False)
         validation_iterator = Iterator(validation_data, cfg['batch_size'], train=False, sort_within_batch=True,
                                        device=device, repeat=False)
+        print("Loaded %d training samples" % len(training_data))
+        print("Loaded %d validation samples" % len(validation_data))
     testing_iterator = Iterator(testing_data, cfg['batch_size'], train=False,
                                 sort_within_batch=True, device=device, repeat=False)
-
-    print("Loaded %d training samples" % len(training_data))
-    print("Loaded %d validation samples" % len(validation_data))
     print("Loaded %d test samples" % len(testing_data))
     print()
 
-    if cfg['mode'] == 'train':
+    if cfg['level'] == 'char':
+        vocab_size = len(training_data.fields['characters'].vocab)
+    else:
+        vocab_size = len(training_data.fields['paragraph'].vocab)
+    n_classes = len(training_data.fields['language_per_word'].vocab)
+    # Initialise a new model
+    if cfg['model_type'] == 'recurrent':
+        model = GRUIdentifier(vocab_size, n_classes, vocab=training_data.fields['characters'].vocab.itos, **cfg)
+    elif cfg['model_type'] == 'small_cnn':
+        padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
+        model = SmallCNN(vocab_size, padding_idx, emb_dim=cfg["embedding_dim"], dropout_p=0, num_filters=60,
+                         window_size=5, n_classes=n_classes)
+    elif cfg['model_type'] == 'cnn_rnn':
+        char_vocab_size = len(training_data.fields['paragraph'].vocab)
+        d = round(math.log(abs(char_vocab_size)))
+        model = CNNRNN(char_vocab_size, d, vocab_size, n_classes, num_filters=50, kernel_size=3, n1=1, n2=1,
+                       vocab=training_data.fields['paragraph'].vocab.itos)
+    else:
+        raise NotImplementedError()
+    model.to(device)
 
-        if cfg['level'] == 'char':
-            vocab_size = len(training_data.fields['characters'].vocab)
-        else:
-            vocab_size = len(training_data.fields['paragraph'].vocab)
-        n_classes = len(training_data.fields['language_per_word'].vocab)
-        # Initialise a new model
-        if cfg['model_type'] == 'recurrent':
-            model = GRUIdentifier(vocab_size, n_classes, vocab=training_data.fields['characters'].vocab.itos, **cfg)
-        elif cfg['model_type'] == 'small_cnn':
-            padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
-            model = SmallCNN(vocab_size, padding_idx, emb_dim=cfg["embedding_dim"], dropout_p=0, num_filters=60,
-                             window_size=5, n_classes=n_classes)
-        elif cfg['model_type'] == 'cnn_rnn':
-            char_vocab_size = len(training_data.fields['paragraph'].vocab)
-            d = round(math.log(abs(char_vocab_size)))
-            model = CNNRNN(char_vocab_size, d, vocab_size, n_classes, num_filters=50, kernel_size=3, n1=1, n2=1,
-                           vocab=training_data.fields['paragraph'].vocab.itos)
-        else:
-            raise NotImplementedError()
-        model.to(device)
+    if cfg['mode'] == 'train':
 
         # Calculate args needed for recurrent model, move these lines if used
         # by other models / pieces of cod
-
         print("Vocab. size word: ", len(training_data.fields['paragraph'].vocab))
         print("First 10 words: ", " ".join(training_data.fields['paragraph'].vocab.itos[:10]))
         print("Vocab. size chars: ", len(training_data.fields['characters'].vocab))
@@ -109,6 +113,14 @@ def main():
         print()
 
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg["learning_rate"])
+
+        print("Trainable Parameters")
+        n_params = sum([np.prod(par.size()) for par in model.parameters() if par.requires_grad])
+        print("Number of parameters: {}".format(n_params))
+        for name, par in model.named_parameters():
+            if par.requires_grad:
+                print("{} : {}".format(name, list(par.size())))
+        print()
 
         if cfg["from_file"]:
 
@@ -137,9 +149,10 @@ def main():
         if os.path.isfile(cfg["from_file"]):
             file = cfg["from_file"]
             print("Loading model from file '{}'".format(file))
-            model = torch.load(file)
+            resume_state = torch.load(file)
+            model.load_state_dict(resume_state['state_dict'])
             tp, cl = test(model, testing_iterator, cfg['level'], True)
-            print("Test results: text partitioning {:.4f}, classification {:.4f}.".format(tp, cl))
+            print("Test Text Partitioning Accuracy {:.4f}, Classification Accuracy {:.4f}.".format(tp, cl))
         else:
             resume_state = None
             print("=> no checkpoint found at '{}'".format(cfg["from_file"]))

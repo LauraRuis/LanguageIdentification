@@ -27,12 +27,12 @@ class GRUIdentifier(RecurrentModel):
         self.bidirectional = bidirectional
         self.embeddings = nn.Embedding(vocab_size, embedding_dim)
         self.embeddings_dropout = nn.Dropout(0.2)
+        self.n_classes = n_classes
         self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim, bidirectional=bidirectional, dropout=0.5)
 
         h0_tensor = torch.Tensor(1, hidden_dim)
         nn.init.xavier_normal_(h0_tensor, gain=1.)
         self.h_0_init = nn.Parameter(h0_tensor)
-
         self.vocab = vocab
 
         for layer_p in self.gru._all_weights:
@@ -190,7 +190,10 @@ class CNNRNN(nn.Module):
         self.conv2_4 = nn.Conv1d(n1, num_filters, 4)
         self.conv2_5 = nn.Conv1d(n1, num_filters, 5)
         self.dropout = nn.Dropout(p=0.25)
+
         self.lstm = nn.LSTM(3 * num_filters, 128, num_layers=1, bidirectional=True)
+        self.n_classes = n_classes
+
 
         self.hidden_dim = 128
         self.bidirectional = True
@@ -215,38 +218,29 @@ class CNNRNN(nn.Module):
 
         bsz, seq_length, char_length = sequence.shape
 
-        word_reps = []
-        for t in range(seq_length):
+        embedded = self.char_embedding(sequence)
+        embedded = embedded.transpose(2, 1)
+        out = self.relu(self.conv1(embedded))
 
-            words = sequence[:, t]
-            max_length = char_lengths[:, t].max()
-            max_length = max_length if max_length > 7 else 8
-            words_chopped = words[:, :max_length]
+        out_3 = self.relu(self.conv2_3(out))
+        out_4 = self.relu(self.conv2_4(out))
+        out_5 = self.relu(self.conv2_5(out))
 
-            words_chopped = self.char_embedding(words_chopped)
-            embedded = torch.transpose(words_chopped, 1, 2)
-            out = self.relu(self.conv1(embedded))
-            # out = self.dropout(out)
+        maxpool_3 = nn.MaxPool1d(out_3.shape[2])
+        maxpool_4 = nn.MaxPool1d(out_4.shape[2])
+        maxpool_5 = nn.MaxPool1d(out_5.shape[2])
 
-            out_3 = self.relu(self.conv2_3(out))
-            out_4 = self.relu(self.conv2_4(out))
-            out_5 = self.relu(self.conv2_5(out))
+        y_3 = maxpool_3(out_3).squeeze(-1)
+        y_4 = maxpool_4(out_4).squeeze(-1)
+        y_5 = maxpool_5(out_5).squeeze(-1)
+        y = torch.cat([y_3, y_4, y_5], 1)
 
-            maxpool_3 = nn.MaxPool1d(out_3.shape[2])
-            maxpool_4 = nn.MaxPool1d(out_4.shape[2])
-            maxpool_5 = nn.MaxPool1d(out_5.shape[2])
+        residual = self.linear(y)
 
-            y_3 = maxpool_3(out_3).squeeze(-1)
-            y_4 = maxpool_4(out_4).squeeze(-1)
-            y_5 = maxpool_5(out_5).squeeze(-1)
-            y = torch.cat([y_3, y_4, y_5], 1)
+        z = y + self.relu(residual)
 
-            residual = self.linear(y)
 
-            z = y + self.relu(residual)
-            word_reps.append(z.unsqueeze(1))
-
-        z = torch.cat(word_reps, 1)
+        #z = torch.cat(word_reps, 1)
         # z = self.dropout(z)
         packed_embedded = pack_padded_sequence(z.transpose(0, 1), lengths)
 
