@@ -11,6 +11,7 @@ from CodeSwitching.data import load_data
 from CodeSwitching.model import GRUIdentifier, CharCNN, CNNRNN
 from CodeSwitching.utils import PAD_TOKEN
 
+
 def main():
     # torch.backends.cudnn.enabled=False
     ap = argparse.ArgumentParser(description="a Language Identification model")
@@ -34,6 +35,7 @@ def main():
     ap.add_argument('--learning_rate', type=float, default=1e-3)
     ap.add_argument('--batch_size', type=int, default=100)
     ap.add_argument('--epochs', type=int, default=10)
+    ap.add_argument('--level', type=str, default='char')
 
     # logging parameters
     ap.add_argument('--eval_frequency', type=int, default=100)
@@ -93,7 +95,6 @@ def main():
                             emb_dim=cfg["embedding_dim"], num_filters=30, window_size=3, dropout_p=0.33,
                             n_classes=n_classes)
         elif cfg['model_type'] == 'cnn_rnn':
-            training_data.fields['paragraph']
             char_vocab_size = len(training_data.fields['paragraph'].vocab)
             d = round(math.log(abs(char_vocab_size)))
             model = CNNRNN(char_vocab_size, d, vocab_size, n_classes, num_filters=50, kernel_size=3, n1=1, n2=1,

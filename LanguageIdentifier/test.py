@@ -4,10 +4,11 @@ import sys
 import numpy
 
 from torchtext.data import Iterator
-from LanguageIdentifier.model import Model, RecurrentModel
+from LanguageIdentifier.model import Model, RecurrentModel, CharModel
+from LanguageIdentifier.utils import PAD_TOKEN
 
 
-def test(model : Model, testing_data : Iterator, output_matrix : bool=False) -> float:
+def test(model : Model, testing_data : Iterator, output_matrix : bool=False, level: str='char') -> float:
 
     model.eval()
     batch_accuracies = []
@@ -16,20 +17,30 @@ def test(model : Model, testing_data : Iterator, output_matrix : bool=False) -> 
     confusion_matrix = numpy.zeros((n_classes, n_classes))
 
     for j, batch in enumerate(iter(testing_data)):
-        characters = batch.characters[0]
-        languages = batch.language
-        if isinstance(model, RecurrentModel):
-            predictions = model.forward(characters, batch.characters[1])
+
+        if level == 'char':
+            sequence = batch.characters[0]
+            lengths = batch.characters[1]
+            target = batch.language
         else:
-            print("Time: {}".format(characters.shape[1]))
-            predictions = model.forward(characters)
+            sequence = batch.paragraph[0]
+            lengths = batch.paragraph[1]
+            char_lengths = batch.paragraph[2]
+            target = batch.language
+
+        if isinstance(model, RecurrentModel):
+            predictions = model.forward(sequence, batch.characters[1])
+        elif isinstance(model, CharModel):
+            predictions = model.forward(sequence)
+        else:
+            predictions = model.forward(sequence, char_lengths, lengths)
 
         _, predicted_languages = torch.topk(predictions, 1)
 
         # Save data needed to calculate accuracy for later
-        batch_accuracies.extend(languages.eq(predicted_languages))
+        batch_accuracies.extend(target.eq(predicted_languages))
 
-        for p, t in zip(predicted_languages, languages):
+        for p, t in zip(predicted_languages, target):
             if p != t:
                 confusion_matrix[p][t] += 1
 

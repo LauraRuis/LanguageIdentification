@@ -6,10 +6,11 @@ from torchtext.data import Iterator
 import os
 from torch.optim.lr_scheduler import LambdaLR
 import numpy as np
+import math
 
 from LanguageIdentifier.train import train
 from LanguageIdentifier.data import load_data
-from LanguageIdentifier.model import GRUIdentifier, CharCNN, SmallCNN
+from LanguageIdentifier.model import GRUIdentifier, CharCNN, SmallCNN, CNNRNN
 from LanguageIdentifier.utils import PAD_TOKEN
 
 
@@ -34,6 +35,7 @@ def main():
 
     # general model parameters
     ap.add_argument('--model_type', type=str, default='recurrent')
+    ap.add_argument('--level', type=str, default='char')
     ap.add_argument('--learning_rate', type=float, default=1e-3)
     ap.add_argument('--batch_size', type=int, default=100)
     ap.add_argument('--epochs', type=int, default=10)
@@ -100,9 +102,11 @@ def main():
             padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
             model = CharCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"],
                             dropout_p=0.5, n_classes=n_classes, length=cfg['max_chars'],)
-        elif cfg['model_type'] == 'word_char':
-            padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
-            raise NotImplementedError()
+        elif cfg['model_type'] == 'cnn_rnn':
+            char_vocab_size = len(training_data.fields['paragraph'].vocab)
+            d = round(math.log(abs(char_vocab_size)))
+            model = CNNRNN(char_vocab_size, d, n_classes, num_filters=50, kernel_size=3, n1=1,
+                           vocab=training_data.fields['paragraph'].vocab.itos)
         else:
             raise NotImplementedError()
 
@@ -118,7 +122,7 @@ def main():
             scheduler = None
         elif cfg["optimizer"] == "sgd":
             par_optimizer = torch.optim.SGD(model.parameters(), lr=cfg["learning_rate"], momentum=0.9)
-            scheduler = LambdaLR(par_optimizer, lr_lambda=lambda t: 0.5**(t / 3))
+            scheduler = LambdaLR(par_optimizer, lr_lambda=lambda t: 0.8**(t / 3))
         else:
             raise NotImplementedError()
 

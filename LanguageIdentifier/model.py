@@ -8,12 +8,12 @@ import math
 from LanguageIdentifier.utils import PAD_TOKEN
 
 
-class Model(nn.Module): # General class if we want all models to have common functions
+class Model(nn.Module):  # General class if we want all models to have common functions
     def __init__(self):
         super().__init__()
 
 
-class RecurrentModel(nn.Module): # General recurrent class, because I want to create multiple recurrent models
+class RecurrentModel(nn.Module):  # General recurrent class, because I want to create multiple recurrent models
     def __init__(self):
         super().__init__()
 
@@ -220,7 +220,6 @@ class CharCNN(CharModel):
         y_onehot.scatter_(1, flattened, 1)
         return y_onehot.view(batch_size, time, self.n_chars)
 
-
     def char_model(self, embedded=None):
 
         # one hot vector
@@ -242,4 +241,83 @@ class CharCNN(CharModel):
 
         # softmax
         log_probs = F.log_softmax(labels, 1)
+        return log_probs
+
+
+class CNNRNN(nn.Module):
+    def __init__(self, char_vocab_size, embed_size, n_classes, num_filters, kernel_size, n1, vocab):
+        super(CNNRNN, self).__init__()
+
+        self.char_embedding = nn.Embedding(char_vocab_size, embed_size, padding_idx=1)
+        self.conv1 = nn.Conv1d(embed_size, n1, kernel_size)
+        self.relu = nn.ReLU()
+        self.conv2_3 = nn.Conv1d(n1, num_filters, kernel_size)
+        self.conv2_4 = nn.Conv1d(n1, num_filters, 4)
+        self.conv2_5 = nn.Conv1d(n1, num_filters, 5)
+        self.dropout = nn.Dropout(p=0.25)
+        self.lstm = nn.LSTM(3 * num_filters, 128, num_layers=1, bidirectional=True)  # TODO fix back
+
+        self.hidden_dim = 128
+        self.bidirectional = True
+        self.linear_lstm = nn.Linear(128 * 2, n_classes)
+
+        self.vocab = vocab
+        self.name = "cnnrnn"
+        self.linear = nn.Linear(3 * num_filters, 3 * num_filters)
+
+    def init_hidden(self, batch_size : int) -> torch.Tensor:
+        h_0 = torch.Tensor(1, self.hidden_dim).repeat(2 if self.bidirectional else 1, batch_size, 1)
+
+        if torch.cuda.is_available():
+            return h_0.cuda()
+        else:
+            return h_0
+
+    def forward(self, sequence : Variable, char_lengths : torch.Tensor, lengths : torch.Tensor) -> torch.Tensor:
+
+        bsz, seq_length, char_length = sequence.shape
+
+        word_reps = []
+        for t in range(seq_length):
+
+            words = sequence[:, t]
+            max_length = char_lengths[:, t].max()
+            max_length = max_length if max_length > 7 else 8
+            words_chopped = words[:, :max_length]
+
+            words_chopped = self.char_embedding(words_chopped)
+            embedded = torch.transpose(words_chopped, 1, 2)
+            out = self.relu(self.conv1(embedded))
+            # out = self.dropout(out)
+
+            out_3 = self.relu(self.conv2_3(out))
+            out_4 = self.relu(self.conv2_4(out))
+            out_5 = self.relu(self.conv2_5(out))
+
+            maxpool_3 = nn.MaxPool1d(out_3.shape[2])
+            maxpool_4 = nn.MaxPool1d(out_4.shape[2])
+            maxpool_5 = nn.MaxPool1d(out_5.shape[2])
+
+            y_3 = maxpool_3(out_3).squeeze(-1)
+            y_4 = maxpool_4(out_4).squeeze(-1)
+            y_5 = maxpool_5(out_5).squeeze(-1)
+            y = torch.cat([y_3, y_4, y_5], 1)
+
+            residual = self.linear(y)
+
+            z = y + self.relu(residual)
+            word_reps.append(z.unsqueeze(1))
+
+        z = torch.cat(word_reps, 1)
+        # z = self.dropout(z)
+        packed_embedded = pack_padded_sequence(z.transpose(0, 1), lengths)
+
+        recurrent_out, (hidden_states, cell_states) = self.lstm(packed_embedded)
+
+        cell_states = cell_states.transpose(0, 1).contiguous().view(cell_states.shape[1], -1)
+
+        output = self.linear_lstm(cell_states)
+
+        log_probs = F.log_softmax(output, 1)
+
         return log_probs

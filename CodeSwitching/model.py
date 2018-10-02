@@ -150,6 +150,7 @@ class CharCNN(CharModel):
 
     return log_probs
 
+
 class CNNRNN(nn.Module):
     def __init__(self, char_vocab_size, embed_size, word_vocab_size, n_classes, num_filters, kernel_size, n1, n2, vocab):
         super(CNNRNN, self).__init__()
@@ -196,16 +197,12 @@ class CNNRNN(nn.Module):
 
             words_chopped = self.char_embedding(words_chopped)
             embedded = torch.transpose(words_chopped, 1, 2)
-            # print("flattened ready for conv: ", embedded.shape)
-            # print("Time: ", char_length)
             out = self.relu(self.conv1(embedded))
             # out = self.dropout(out)
-            # print("Size after first cnv", out.shape)
 
             out_3 = self.relu(self.conv2_3(out))
             out_4 = self.relu(self.conv2_4(out))
             out_5 = self.relu(self.conv2_5(out))
-            # print("Sizes 3 convs: ", out_3.shape, out_4.shape, out_5.shape)
 
             maxpool_3 = nn.MaxPool1d(out_3.shape[2])
             maxpool_4 = nn.MaxPool1d(out_4.shape[2])
@@ -214,29 +211,22 @@ class CNNRNN(nn.Module):
             y_3 = maxpool_3(out_3).squeeze(-1)
             y_4 = maxpool_4(out_4).squeeze(-1)
             y_5 = maxpool_5(out_5).squeeze(-1)
-            # print("Sizes after maxpool: ", y_3.shape, y_4.shape, y_5.shape)
-
             y = torch.cat([y_3, y_4, y_5], 1)
-            # print("Concatenated size: ", y.shape)
 
             residual = self.linear(y)
 
             z = y + self.relu(residual)
-            # print("Z shape: ", z.shape)
             word_reps.append(z.unsqueeze(1))
-            # z = z.view(bsz, seq_length, -1)
-            # print("Z reshapen: ", z.shape)
 
         z = torch.cat(word_reps, 1)
+        # z = self.dropout(z)
         packed_embedded = pack_padded_sequence(z.transpose(0, 1), lengths)
 
         recurrent_out, _ = self.lstm(packed_embedded)
-        # print("SHape after LSTM: ", out.shape)
 
         recurrent_out, _ = pad_packed_sequence(recurrent_out)
 
         output = self.linear_lstm(recurrent_out.transpose(0, 1))
-        # print("Final oout: ", output.shape)
 
         log_probs = F.log_softmax(output, 2)
 
