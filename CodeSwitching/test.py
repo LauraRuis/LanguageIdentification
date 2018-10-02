@@ -153,7 +153,10 @@ def to_f_score(scores):
     false_negatives = sum(scores[lan]['FN'] for lan in scores)
     precision = true_positives / (true_positives + false_positives)
     recall = true_positives / (true_positives + false_negatives)
-    F_micro = 2 * ( precision * recall ) / (precision + recall)
+    if (precision + recall) > 0:
+        F_micro = 2 * ( precision * recall ) / (precision + recall)
+    else:
+        F_micro = 0
 
     # macro-averaged
     precision, recall = 0, 0

@@ -28,7 +28,7 @@ class GRUIdentifier(RecurrentModel):
         self.embeddings = nn.Embedding(vocab_size, embedding_dim)
         self.embeddings_dropout = nn.Dropout(0.2)
         self.n_classes = n_classes
-        self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim, bidirectional=bidirectional, dropout=0.5)
+        self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim, bidirectional=bidirectional)
 
         h0_tensor = torch.Tensor(1, hidden_dim)
         nn.init.xavier_normal_(h0_tensor, gain=1.)
@@ -46,8 +46,6 @@ class GRUIdentifier(RecurrentModel):
             self.hidden2label = nn.Linear(hidden_dim, n_classes)
 
     def init_hidden(self, batch_size : int) -> torch.Tensor:
-        #h_0 = Variable(torch.zeros(2 if self.bidirectional else 1,
-                       # batch_size, self.hidden_dim))
         h_0 = self.h_0_init.repeat(2 if self.bidirectional else 1, batch_size, 1)
 
         if torch.cuda.is_available():
@@ -56,7 +54,6 @@ class GRUIdentifier(RecurrentModel):
             return h_0
 
     def forward(self, sentence : Variable, lengths : torch.Tensor) -> torch.Tensor:
-
         batch_size = sentence.shape[0]
         x = self.embeddings(torch.transpose(sentence, 0, 1))  # time, batch, dim
         x = self.embeddings_dropout(x)
@@ -68,16 +65,6 @@ class GRUIdentifier(RecurrentModel):
         recurrent_out, _ = pad_packed_sequence(recurrent_out)
 
         # Classification
-
-        # FIXME: take final recurrent state or..
-        # recurrent_out = torch.transpose(recurrent_out, 1, 0)  # batch, time, dim
-        # dim = recurrent_out.size(2)
-        # indices = lengths.view(-1, 1).unsqueeze(2).repeat(1, 1, dim) - 1
-        # indices = indices.cuda() if torch.cuda.is_available() else indices
-        # final_states = torch.squeeze(torch.gather(recurrent_out, 1, indices), dim=1)
-
-        # FIXME: take hidden state
-        # y = self.hidden2label(hidden_out.squeeze())
         recurrent_out = torch.transpose(recurrent_out, 1, 0)  # batch, time, dim
         y = self.hidden2label(recurrent_out)
         log_probs = F.log_softmax(y, 2)
