@@ -95,9 +95,11 @@ def data_reader(x_file: Iterable, y_file: Iterable, train: bool, split_sentences
 
 class WiLIDataset(Dataset):
 
-    @staticmethod
-    def sort_key(example):
-        return len(example.characters)
+    def sort_key(self, example):
+        if self.level == "char":
+            return len(example.characters)
+        else:
+            return len(example.paragraph)
 
     def __init__(self, paragraph_path: str, label_path: str, fields: dict, split_sentences: bool, train: bool,
                  max_chars: int=1000, level: str="char",
