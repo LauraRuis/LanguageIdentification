@@ -14,7 +14,7 @@ from CodeSwitching.utils import PAD_TOKEN, START_TOKEN, END_TOKEN
 from nltk.tokenize import sent_tokenize
 
 
-def get_data_fields() -> dict:
+def get_data_fields(model_type) -> dict:
     """"
     Creates torchtext fields for the I/O pipeline.
     """
@@ -24,14 +24,16 @@ def get_data_fields() -> dict:
                               eos_token=END_TOKEN, pad_token=PAD_TOKEN)
     characters = Field(include_lengths=True, batch_first=True, init_token=None,
                        eos_token=END_TOKEN, pad_token=PAD_TOKEN)
-    paragraph = Field(include_lengths=True, batch_first=True, init_token=None,
-                      eos_token=END_TOKEN, pad_token=PAD_TOKEN)  # FIXME BACK
 
     nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
                           eos_token=None)
 
-    paragraph = NestedField(nesting_field, pad_token=PAD_TOKEN, eos_token=END_TOKEN,
-                            include_lengths=True)
+    if model_type != "recurrent":
+        paragraph = NestedField(nesting_field, pad_token=PAD_TOKEN, eos_token=END_TOKEN,
+                                include_lengths=True)
+    else:
+        paragraph = Field(include_lengths=True, batch_first=True, init_token=None,
+                          eos_token=END_TOKEN, pad_token=PAD_TOKEN)  # FIXME BACK
 
     fields = {
         'characters': ('characters', characters),
@@ -145,10 +147,11 @@ class WiLIDataset(Dataset):
 def load_data(training_text: str, training_labels: str, training_switch : str,
               testing_text: str, testing_labels: str, testing_switch: str,
               validation_text: str, validation_labels: str, validation_switch : str,
-              level : str, **kwargs) -> (WiLIDataset, WiLIDataset, WiLIDataset):
+              level : str, model_type : str,
+              **kwargs) -> (WiLIDataset, WiLIDataset, WiLIDataset):
 
     # load training and testing data
-    fields = get_data_fields()
+    fields = get_data_fields(model_type)
     _language_per_char = fields["language_per_char"][-1]
     _language_per_word = fields["language_per_word"][-1]
     _paragraph = fields["paragraph"][-1]
