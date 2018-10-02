@@ -118,16 +118,16 @@ class SmallCNN(CharModel):
 
         self.conv1 = nn.Conv1d(emb_dim, num_filters, 5, padding=5 - 1)
         self.conv2 = nn.Conv1d(num_filters, num_filters, window_size, padding=window_size - 1)
-        self.xavier_uniform(name="conv1")
-        self.xavier_uniform(name="conv2")
+        # self.xavier_uniform(name="conv1")
+        # self.xavier_uniform(name="conv2")
         self.hidden2label = nn.Linear(num_filters, n_classes)
+        self.xavier_uniform()
         self.relu = nn.ReLU()
 
-    def xavier_uniform(self, name="", gain=1.):
+    def xavier_uniform(self, gain=1.):
 
         # default pytorch initialization
-        pars = getattr(self, name)
-        for name, weight in pars.named_parameters():
+        for name, weight in self.named_parameters():
             if len(weight.size()) > 1:
                 nn.init.xavier_uniform_(weight.data, gain=gain)
             elif "bias" in name:
@@ -264,6 +264,11 @@ class CNNRNN(nn.Module):
 
         self.xavier_uniform()
 
+        for layer_p in self.lstm._all_weights:
+            for p in layer_p:
+                if 'weight' in p:
+                    nn.init.orthogonal_(self.lstm.__getattr__(p))
+
     def init_hidden(self, batch_size : int) -> (torch.Tensor, torch.Tensor):
         # Initialise hidden state with learned hidden state
         h_0 = self.h_0_init.repeat(2 if self.bidirectional else 1, batch_size, 1)
@@ -319,11 +324,11 @@ class CNNRNN(nn.Module):
         #
         # z = torch.cat(word_reps, 1)
 
-        bsz, seq_length, char_length = sequence.shape
-
         embedded = self.char_embedding(sequence)
-        embedded = embedded.transpose(2, 1)
-        out = self.relu(self.conv1(embedded))
+        bsz, seq_length, char_length, dim = embedded.shape
+        embedded = embedded.transpose(3, 2)
+
+        out = self.relu(self.conv1(embedded.view(bsz * seq_length, dim, char_length)))
 
         out_3 = self.relu(self.conv2_3(out))
         out_4 = self.relu(self.conv2_4(out))
@@ -341,10 +346,11 @@ class CNNRNN(nn.Module):
         residual = self.linear(y)
 
         z = y + self.relu(residual)
+        z = z.view(bsz, seq_length, -1)
         # z = self.dropout(z)
         packed_embedded = pack_padded_sequence(z.transpose(0, 1), lengths)
 
-        hidden_in, context_in = self.init_hidden(z.shape[1])
+        hidden_in, context_in = self.init_hidden(z.shape[0])
         recurrent_out, (hidden_states, cell_states) = self.lstm(packed_embedded, (hidden_in, context_in))
 
         cell_states = cell_states.transpose(0, 1).contiguous().view(cell_states.shape[1], -1)

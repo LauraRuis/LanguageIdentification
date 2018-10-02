@@ -40,7 +40,7 @@ def main():
 
     # general model parameters
     ap.add_argument('--model_type', type=str, default='recurrent')
-    ap.add_argument('--level', type=str, default='char')
+    ap.add_argument('--level', type=str, choices=['word', 'char'], default='char')
     ap.add_argument('--learning_rate', type=float, default=1e-3)
     ap.add_argument('--batch_size', type=int, default=100)
     ap.add_argument('--epochs', type=int, default=10)
