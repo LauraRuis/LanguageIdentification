@@ -139,6 +139,7 @@ class SmallCNN(CharModel):
         self.chars2hidden = nn.Linear(num_filters, self.hidden_dim)
         self.lstm = nn.LSTM(emb_dim + num_filters, self.hidden_dim, num_layers=1, bidirectional=False)
         self.hidden2label = nn.Linear(self.hidden_dim, n_classes)
+        self.n_classes = n_classes
 
     def xavier_uniform(self, name="", gain=1.):
 
