@@ -115,7 +115,8 @@ class SmallCNN(CharModel):
 
         self.hidden_dim = 128
         self.chars2hidden = nn.Linear(num_filters, self.hidden_dim)
-        self.lstm = nn.LSTM(emb_dim + num_filters, self.hidden_dim, num_layers=1, bidirectional=False)
+        self.bidirectional = False
+        self.lstm = nn.LSTM(emb_dim + num_filters, self.hidden_dim, num_layers=1, bidirectional=self.bidirectional)
         self.hidden2label = nn.Linear(self.hidden_dim, n_classes)
         self.n_classes = n_classes
 
