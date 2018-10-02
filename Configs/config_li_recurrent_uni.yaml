@@ -1,0 +1,9 @@
+batch_size : 128
+log_frequency : 100
+dropout_p : 0.0
+split_paragraphs : True
+eval_frequency : 1000
+epochs : 100
+embedding_dim : 30
+hidden_dim : 300
+max_chars : 250
