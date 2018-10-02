@@ -170,5 +170,8 @@ def to_f_score(scores):
         if denom > 0: recall += scores[lan]['TP'] / denom
     precision = precision / len(scores)
     recall = recall / len(scores)
-    F_macro = 2 * ( precision * recall ) / (precision + recall)
-    return F_micro, F_macro
+    if (precision + recall) == 0 :
+        return F_micro, 0
+    else:
+        F_macro = 2 * ( precision * recall ) / (precision + recall)
+        return F_micro, F_macro

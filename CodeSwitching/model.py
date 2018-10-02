@@ -87,15 +87,8 @@ class CharModel(nn.Module):
 
         if embed_chars:
             self.embeddings = nn.Embedding(n_chars, emb_dim, padding_idx=padding_idx)
-            self.init_embedding()
 
         self.char_emb_dropout = nn.Dropout(p=dropout_p)
-
-    def init_embedding(self):
-        init_range = math.sqrt(3 / self.emb_dim)
-        embed = self.embeddings.weight.clone()
-        embed.uniform_(-init_range, init_range)
-        self.embeddings.weight.data.copy_(embed)
 
     def forward(self, sentence: Variable=None, lengths: torch.Tensor=None) -> torch.Tensor:
         # embed characters
@@ -118,33 +111,44 @@ class SmallCNN(CharModel):
 
         self.conv1 = nn.Conv1d(emb_dim, num_filters, 5, padding=5 - 1)
         self.conv2 = nn.Conv1d(num_filters, num_filters, window_size, padding=window_size - 1)
-        self.xavier_uniform(name="conv1")
-        self.xavier_uniform(name="conv2")
         self.relu = nn.ReLU()
 
         self.hidden_dim = 128
         self.chars2hidden = nn.Linear(num_filters, self.hidden_dim)
-        self.lstm = nn.LSTM(emb_dim + num_filters, self.hidden_dim, num_layers=1, bidirectional=False)
+        self.bidirectional = False
+        self.lstm = nn.LSTM(emb_dim + num_filters, self.hidden_dim, num_layers=1, bidirectional=self.bidirectional)
         self.hidden2label = nn.Linear(self.hidden_dim, n_classes)
         self.n_classes = n_classes
 
-    def xavier_uniform(self, name="", gain=1.):
+        h0_tensor = torch.Tensor(1, self.hidden_dim)
+        c0_tensor = torch.Tensor(1, self.hidden_dim)
+        self.h_0_init = nn.Parameter(h0_tensor)
+        self.c_0_init = nn.Parameter(c0_tensor)
+        self.xavier_uniform()
+
+        for layer_p in self.lstm._all_weights:
+            for p in layer_p:
+                if 'weight' in p:
+                    nn.init.orthogonal_(self.lstm.__getattr__(p))
+
+    def init_hidden(self, batch_size : int) -> (torch.Tensor, torch.Tensor):
+        # Initialise hidden state with learned hidden state
+        h_0 = self.h_0_init.repeat(2 if self.bidirectional else 1, batch_size, 1)
+        c_0 = self.c_0_init.repeat(2 if self.bidirectional else 1, batch_size, 1)
+
+        if torch.cuda.is_available():
+            return h_0.cuda(), c_0.cuda()
+        else:
+            return h_0, c_0
+
+    def xavier_uniform(self, gain=1.):
 
         # default pytorch initialization
-        pars = getattr(self, name)
-        for name, weight in pars.named_parameters():
+        for name, weight in self.named_parameters():
             if len(weight.size()) > 1:
                 nn.init.xavier_uniform_(weight.data, gain=gain)
             elif "bias" in name:
                 weight.data.fill_(0.)
-
-    def init_hidden(self, batch_size : int) -> torch.Tensor:
-        h_0 = torch.Tensor(1, self.hidden_dim).repeat(1, batch_size, 1)
-
-        if torch.cuda.is_available():
-            return h_0.cuda()
-        else:
-            return h_0
 
     def char_model(self, embedded: torch.Tensor=None, lengths: torch.Tensor=None) -> torch.Tensor:
         embedded = torch.transpose(embedded, 1, 2)  # (bsz, dim, time)
@@ -158,7 +162,8 @@ class SmallCNN(CharModel):
         embeddings_conv = torch.cat((embedded, chars.unsqueeze(1).repeat(1, embedded.shape[1], 1)), 2)
         packed_embeddings = pack_padded_sequence(embeddings_conv.transpose(0, 1), lengths)
 
-        output, _ = self.lstm(packed_embeddings)
+        hidden_in = self.init_hidden(embedded.shape[0])
+        output, _ = self.lstm(packed_embeddings, hidden_in)
         output, _ = pad_packed_sequence(output)
         output = output.transpose(0, 1)
         labels = self.hidden2label(output)
@@ -182,33 +187,52 @@ class CNNRNN(nn.Module):
         self.lstm = nn.LSTM(3 * num_filters, 128, num_layers=1, bidirectional=True)
         self.n_classes = n_classes
 
-
         self.hidden_dim = 128
         self.bidirectional = True
-        # self.lstm = nn.LSTM(embed_size, self.hidden_dim, num_layers=1, bidirectional=self.bidirectional)
+        h0_tensor = torch.Tensor(1, self.hidden_dim)
+        c0_tensor = torch.Tensor(1, self.hidden_dim)
+        self.h_0_init = nn.Parameter(h0_tensor)
+        self.c_0_init = nn.Parameter(c0_tensor)
+
         self.linear_lstm = nn.Linear(128 * 2, n_classes)
 
         self.vocab = vocab
         self.name = "cnnrnn"
         self.linear = nn.Linear(3 * num_filters, 3 * num_filters)
 
-    def init_hidden(self, batch_size : int) -> torch.Tensor:
-        #h_0 = Variable(torch.zeros(2 if self.bidirectional else 1,
-                       # batch_size, self.hidden_dim))
-        h_0 = torch.Tensor(1, self.hidden_dim).repeat(2 if self.bidirectional else 1, batch_size, 1)
+        self.xavier_uniform()
+
+        for layer_p in self.lstm._all_weights:
+            for p in layer_p:
+                if 'weight' in p:
+                    nn.init.orthogonal_(self.lstm.__getattr__(p))
+
+    def xavier_uniform(self, gain=1.):
+
+        # default pytorch initialization
+        for name, weight in self.named_parameters():
+            if len(weight.size()) > 1:
+                nn.init.xavier_uniform_(weight.data, gain=gain)
+            elif "bias" in name:
+                weight.data.fill_(0.)
+
+    def init_hidden(self, batch_size : int) -> (torch.Tensor, torch.Tensor):
+        # Initialise hidden state with learned hidden state
+        h_0 = self.h_0_init.repeat(2 if self.bidirectional else 1, batch_size, 1)
+        c_0 = self.c_0_init.repeat(2 if self.bidirectional else 1, batch_size, 1)
 
         if torch.cuda.is_available():
-            return h_0.cuda()
+            return h_0.cuda(), c_0.cuda()
         else:
-            return h_0
+            return h_0, c_0
 
     def forward(self, sequence : Variable, char_lengths : torch.Tensor, lengths : torch.Tensor) -> torch.Tensor:
 
-        bsz, seq_length, char_length = sequence.shape
-
         embedded = self.char_embedding(sequence)
-        embedded = embedded.transpose(2, 1)
-        out = self.relu(self.conv1(embedded))
+        bsz, seq_length, char_length, dim = embedded.shape
+        embedded = embedded.transpose(3, 2)
+
+        out = self.relu(self.conv1(embedded.view(bsz * seq_length, dim, char_length)))
 
         out_3 = self.relu(self.conv2_3(out))
         out_4 = self.relu(self.conv2_4(out))
@@ -226,13 +250,14 @@ class CNNRNN(nn.Module):
         residual = self.linear(y)
 
         z = y + self.relu(residual)
-
+        z = z.view(bsz, seq_length, -1)
 
         #z = torch.cat(word_reps, 1)
         # z = self.dropout(z)
         packed_embedded = pack_padded_sequence(z.transpose(0, 1), lengths)
 
-        recurrent_out, _ = self.lstm(packed_embedded)
+        hidden_in = self.init_hidden(z.shape[0])
+        recurrent_out, _ = self.lstm(packed_embedded, hidden_in)
 
         recurrent_out, _ = pad_packed_sequence(recurrent_out)
 

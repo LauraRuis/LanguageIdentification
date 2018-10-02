@@ -94,15 +94,8 @@ class CharModel(nn.Module):
 
         if embed_chars:
             self.embeddings = nn.Embedding(n_chars, emb_dim, padding_idx=padding_idx)
-            self.init_embedding()
 
         self.char_emb_dropout = nn.Dropout(p=dropout_p)
-
-    def init_embedding(self):
-        init_range = math.sqrt(3 / self.emb_dim)
-        embed = self.embeddings.weight.clone()
-        embed.uniform_(-init_range, init_range)
-        self.embeddings.weight.data.copy_(embed)
 
     def forward(self, sentence: Variable) -> torch.Tensor:
         # embed characters
@@ -125,16 +118,16 @@ class SmallCNN(CharModel):
 
         self.conv1 = nn.Conv1d(emb_dim, num_filters, 5, padding=5 - 1)
         self.conv2 = nn.Conv1d(num_filters, num_filters, window_size, padding=window_size - 1)
-        self.xavier_uniform(name="conv1")
-        self.xavier_uniform(name="conv2")
+        # self.xavier_uniform(name="conv1")
+        # self.xavier_uniform(name="conv2")
         self.hidden2label = nn.Linear(num_filters, n_classes)
+        self.xavier_uniform()
         self.relu = nn.ReLU()
 
-    def xavier_uniform(self, name="", gain=1.):
+    def xavier_uniform(self, gain=1.):
 
         # default pytorch initialization
-        pars = getattr(self, name)
-        for name, weight in pars.named_parameters():
+        for name, weight in self.named_parameters():
             if len(weight.size()) > 1:
                 nn.init.xavier_uniform_(weight.data, gain=gain)
             elif "bias" in name:
@@ -160,6 +153,7 @@ class CharCNN(CharModel):
                                       dropout_p=dropout_p, embed_chars=False)
 
         self.n_chars = n_chars
+
         # in_channels, out_channels, kernel_size, stride, padding
         conv_stride = 1
         max_pool_kernel_size = 3
@@ -188,7 +182,7 @@ class CharCNN(CharModel):
         self.fc1 = nn.Linear(int((length - 96)/27) * 256, 1024)
         self.fc2 = nn.Linear(1024, 1024)
         self.classifier = nn.Linear(1024, n_classes)
-        self.gaussian_init()
+        self.xavier_uniform()
 
     def gaussian_init(self, mean=0., std=0.05):
         for name, weight in self.named_parameters():
@@ -259,58 +253,105 @@ class CNNRNN(nn.Module):
         self.bidirectional = True
         self.linear_lstm = nn.Linear(128 * 2, n_classes)
 
+        h0_tensor = torch.Tensor(1, self.hidden_dim)
+        c0_tensor = torch.Tensor(1, self.hidden_dim)
+        self.h_0_init = nn.Parameter(h0_tensor)
+        self.c_0_init = nn.Parameter(c0_tensor)
+
         self.vocab = vocab
         self.name = "cnnrnn"
         self.linear = nn.Linear(3 * num_filters, 3 * num_filters)
 
-    def init_hidden(self, batch_size : int) -> torch.Tensor:
-        h_0 = torch.Tensor(1, self.hidden_dim).repeat(2 if self.bidirectional else 1, batch_size, 1)
+        self.xavier_uniform()
+
+        for layer_p in self.lstm._all_weights:
+            for p in layer_p:
+                if 'weight' in p:
+                    nn.init.orthogonal_(self.lstm.__getattr__(p))
+
+    def init_hidden(self, batch_size : int) -> (torch.Tensor, torch.Tensor):
+        # Initialise hidden state with learned hidden state
+        h_0 = self.h_0_init.repeat(2 if self.bidirectional else 1, batch_size, 1)
+        c_0 = self.c_0_init.repeat(2 if self.bidirectional else 1, batch_size, 1)
 
         if torch.cuda.is_available():
-            return h_0.cuda()
+            return h_0.cuda(), c_0.cuda()
         else:
-            return h_0
+            return h_0, c_0
+
+    def xavier_uniform(self, gain=1.):
+        # default pytorch initialization
+        for name, weight in self.named_parameters():
+          if len(weight.size()) > 1:
+              nn.init.xavier_uniform_(weight.data, gain=gain)
+          elif "bias" in name:
+            weight.data.fill_(0.)
 
     def forward(self, sequence : Variable, char_lengths : torch.Tensor, lengths : torch.Tensor) -> torch.Tensor:
 
-        bsz, seq_length, char_length = sequence.shape
+        # bsz, seq_length, char_length = sequence.shape
+        #
+        # word_reps = []
+        # for t in range(seq_length):
+        #
+        #     words = sequence[:, t]
+        #     max_length = char_lengths[:, t].max()
+        #     max_length = max_length if max_length > 7 else 8
+        #     words_chopped = words[:, :max_length]
+        #
+        #     words_chopped = self.char_embedding(words_chopped)
+        #     embedded = torch.transpose(words_chopped, 1, 2)
+        #     out = self.relu(self.conv1(embedded))
+        #     # out = self.dropout(out)
+        #
+        #     out_3 = self.relu(self.conv2_3(out))
+        #     out_4 = self.relu(self.conv2_4(out))
+        #     out_5 = self.relu(self.conv2_5(out))
+        #
+        #     maxpool_3 = nn.MaxPool1d(out_3.shape[2])
+        #     maxpool_4 = nn.MaxPool1d(out_4.shape[2])
+        #     maxpool_5 = nn.MaxPool1d(out_5.shape[2])
+        #
+        #     y_3 = maxpool_3(out_3).squeeze(-1)
+        #     y_4 = maxpool_4(out_4).squeeze(-1)
+        #     y_5 = maxpool_5(out_5).squeeze(-1)
+        #     y = torch.cat([y_3, y_4, y_5], 1)
+        #
+        #     residual = self.linear(y)
+        #
+        #     z = y + self.relu(residual)
+        #     word_reps.append(z.unsqueeze(1))
+        #
+        # z = torch.cat(word_reps, 1)
 
-        word_reps = []
-        for t in range(seq_length):
+        embedded = self.char_embedding(sequence)
+        bsz, seq_length, char_length, dim = embedded.shape
+        embedded = embedded.transpose(3, 2)
 
-            words = sequence[:, t]
-            max_length = char_lengths[:, t].max()
-            max_length = max_length if max_length > 7 else 8
-            words_chopped = words[:, :max_length]
+        out = self.relu(self.conv1(embedded.view(bsz * seq_length, dim, char_length)))
 
-            words_chopped = self.char_embedding(words_chopped)
-            embedded = torch.transpose(words_chopped, 1, 2)
-            out = self.relu(self.conv1(embedded))
-            # out = self.dropout(out)
+        out_3 = self.relu(self.conv2_3(out))
+        out_4 = self.relu(self.conv2_4(out))
+        out_5 = self.relu(self.conv2_5(out))
 
-            out_3 = self.relu(self.conv2_3(out))
-            out_4 = self.relu(self.conv2_4(out))
-            out_5 = self.relu(self.conv2_5(out))
+        maxpool_3 = nn.MaxPool1d(out_3.shape[2])
+        maxpool_4 = nn.MaxPool1d(out_4.shape[2])
+        maxpool_5 = nn.MaxPool1d(out_5.shape[2])
 
-            maxpool_3 = nn.MaxPool1d(out_3.shape[2])
-            maxpool_4 = nn.MaxPool1d(out_4.shape[2])
-            maxpool_5 = nn.MaxPool1d(out_5.shape[2])
+        y_3 = maxpool_3(out_3).squeeze(-1)
+        y_4 = maxpool_4(out_4).squeeze(-1)
+        y_5 = maxpool_5(out_5).squeeze(-1)
+        y = torch.cat([y_3, y_4, y_5], 1)
 
-            y_3 = maxpool_3(out_3).squeeze(-1)
-            y_4 = maxpool_4(out_4).squeeze(-1)
-            y_5 = maxpool_5(out_5).squeeze(-1)
-            y = torch.cat([y_3, y_4, y_5], 1)
+        residual = self.linear(y)
 
-            residual = self.linear(y)
-
-            z = y + self.relu(residual)
-            word_reps.append(z.unsqueeze(1))
-
-        z = torch.cat(word_reps, 1)
+        z = y + self.relu(residual)
+        z = z.view(bsz, seq_length, -1)
         # z = self.dropout(z)
         packed_embedded = pack_padded_sequence(z.transpose(0, 1), lengths)
 
-        recurrent_out, (hidden_states, cell_states) = self.lstm(packed_embedded)
+        hidden_in, context_in = self.init_hidden(z.shape[0])
+        recurrent_out, (hidden_states, cell_states) = self.lstm(packed_embedded, (hidden_in, context_in))
 
         cell_states = cell_states.transpose(0, 1).contiguous().view(cell_states.shape[1], -1)
 
