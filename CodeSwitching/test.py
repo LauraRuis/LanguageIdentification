@@ -5,7 +5,7 @@ import numpy
 from collections import Counter, defaultdict
 
 from torchtext.data import Iterator
-from LanguageIdentifier.model import Model, RecurrentModel, GRUIdentifier
+from LanguageIdentifier.model import Model, RecurrentModel, GRUIdentifier, CharModel
 
 
 THRESHOLD = 0
@@ -108,7 +108,7 @@ def test(model : Model, testing_data : Iterator, level : str, show_example : boo
             char_lengths = batch.paragraph[2]
             target = batch.language_per_word[0]
 
-        if model.name == "recurrent":            
+        if model.name == "recurrent" or model.name == "convolutional":
             predictions = model.forward(sequence, lengths)
         else:
             predictions = model.forward(sequence, char_lengths, lengths)

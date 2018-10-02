@@ -162,8 +162,8 @@ def load_data(training_text: str, training_labels: str, training_switch : str,
     # build vocabularies
     _language_per_word.build_vocab(training_data)
     _language_per_char.build_vocab(training_data)
-    _paragraph.build_vocab(training_data, min_freq=1)  # TODO: make min_freq parameter
-    _characters.build_vocab(training_data, min_freq=1)  # TODO: fix for enormous char vocab size
+    _paragraph.build_vocab(training_data, min_freq=10)  # TODO: make min_freq parameter
+    _characters.build_vocab(training_data, min_freq=10)  # TODO: fix for enormous char vocab size
 
     return training_data, validation_data, testing_data
 
