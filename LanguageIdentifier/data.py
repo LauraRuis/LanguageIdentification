@@ -57,7 +57,7 @@ def data_reader(x_file: Iterable, y_file: Iterable, train: bool, split_sentences
     """
 
     example = empty_example()
-    spacy_tokenizer = data.get_tokenizer("spacy")  # TODO: implement with word level
+    #spacy_tokenizer = data.get_tokenizer("spacy")  # TODO: implement with word level
 
     for x, y in zip(x_file, y_file):
 
@@ -83,7 +83,7 @@ def data_reader(x_file: Iterable, y_file: Iterable, train: bool, split_sentences
 
             example['paragraph'] = [word.lower() for word in paragraph]
             example['language'] = language
-            example['characters'] = list(x) if not train else list(x)[:max_chars]
+            example['characters'] = list(x)[:max_chars]
 
             examples.append(example)
         yield examples
@@ -127,6 +127,7 @@ class WiLIDataset(Dataset):
 
 def load_data(training_text: str, training_labels: str, testing_text: str, testing_labels: str,
               validation_text: str, validation_labels: str, max_chars: int=1000,
+              max_chars_test: int=-1,
               split_paragraphs: bool=False, fix_lengths: bool=False, **kwargs) -> (WiLIDataset, WiLIDataset):
 
     # load training and testing data
@@ -142,7 +143,8 @@ def load_data(training_text: str, training_labels: str, testing_text: str, testi
 
     training_data = WiLIDataset(training_text, training_labels, fields, split_paragraphs, True, max_chars)
     validation_data = WiLIDataset(validation_text, validation_labels, fields, False, False, max_chars)
-    testing_data = WiLIDataset(testing_text, testing_labels, fields, False, False, max_chars)
+    if max_chars_test == -1: max_chars_test = max_chars
+    testing_data = WiLIDataset(testing_text, testing_labels, fields, False, False, max_chars_test)
 
     # TODO: add <unk>
     # build vocabularies

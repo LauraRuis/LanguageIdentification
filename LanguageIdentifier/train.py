@@ -45,10 +45,10 @@ def train(par_optimizer: adam=None, model: Model=None,
         if scheduler:
             scheduler.step()
 
-        model.train()
+        
         epoch_losses = []
         for j, batch in enumerate(iter(training_data)):
-
+            model.train()
             par_optimizer.zero_grad()
 
             # We take the characters as input to the network, and the languages

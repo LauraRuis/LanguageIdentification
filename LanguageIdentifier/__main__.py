@@ -6,18 +6,22 @@ from torchtext.data import Iterator
 import os
 from torch.optim.lr_scheduler import LambdaLR
 import numpy as np
+import yaml
 
 from LanguageIdentifier.train import train
 from LanguageIdentifier.data import load_data
 from LanguageIdentifier.model import GRUIdentifier, CharCNN, SmallCNN
 from LanguageIdentifier.utils import PAD_TOKEN
+from LanguageIdentifier.test import test
 
 
 def main():
+
     # torch.backends.cudnn.enabled=False
     ap = argparse.ArgumentParser(description="a Language Identification model")
-    ap.add_argument('--mode', choices=['train', 'predict'], default='train')
+    ap.add_argument('--mode', choices=['train', 'predict', 'test'], default='train')
     ap.add_argument('--output_dir', type=str, default='output')
+    ap.add_argument('--config', type=str, default=None)
 
     # data arguments
     ap.add_argument('--training_text', type=str, default='Data/x_train_split.txt')
@@ -29,6 +33,7 @@ def main():
 
     # data parameters
     ap.add_argument('--max_chars', type=int, default=250)
+    ap.add_argument('--max_chars_test', type=int, default=-1)
     ap.add_argument('--split_paragraphs', action='store_true', default=False)
     ap.add_argument('--fix_lengths', action='store_true', default=False)
 
@@ -38,11 +43,12 @@ def main():
     ap.add_argument('--batch_size', type=int, default=100)
     ap.add_argument('--epochs', type=int, default=10)
     ap.add_argument('--optimizer', type=str, default='adam')
+    ap.add_argument('--dropout_p', type=float, default=0.0)
 
     # logging parameters
     ap.add_argument('--eval_frequency', type=int, default=100)
     ap.add_argument('--log_frequency', type=int, default=100)
-    ap.add_argument('--resume_from_file', type=str, default="")
+    ap.add_argument('--from_file', type=str, default="")
 
     # Recurrent model settings
     ap.add_argument('--embedding_dim', type=int, default=100)
@@ -50,6 +56,10 @@ def main():
     ap.add_argument('--bidirectional', action='store_true')
 
     cfg = vars(ap.parse_args())
+    # Allow both the usage of a config file and of command line arguments
+    if cfg["config"] is not None:
+        with open(cfg["config"]) as f: yaml_config = yaml.load(f)
+        cfg.update(yaml_config)
 
     if cfg["model_type"] == "large_cnn":
         assert cfg["fix_lengths"], "Please set flage fix_lengths to true when using large cnn " \
@@ -81,31 +91,30 @@ def main():
     print("Loaded %d test samples" % len(testing_data))
     print()
 
+    # Calculate args needed for recurrent model, move these lines if used
+    # by other models / pieces of code
+    char_vocab_size = len(training_data.fields['characters'].vocab)
+    n_classes = len(training_data.fields['language'].vocab)
+
+    # Initialise a new model
+    if cfg['model_type'] == 'recurrent':
+
+        model = GRUIdentifier(char_vocab_size, n_classes, **cfg)
+    elif cfg['model_type'] == 'small_cnn':
+        padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
+        model = SmallCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"], dropout_p=0.33, num_filters=30,
+                         window_size=3, n_classes=n_classes)
+    elif cfg['model_type'] == 'large_cnn':
+        padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
+        model = CharCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"],
+                        dropout_p=0.5, n_classes=n_classes, length=cfg['max_chars'],)
+    elif cfg['model_type'] == 'word_char':
+        padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
+        raise NotImplementedError()
+    else:
+        raise NotImplementedError()
+
     if cfg['mode'] == 'train':
-
-        # Calculate args needed for recurrent model, move these lines if used
-        # by other models / pieces of code
-        char_vocab_size = len(training_data.fields['characters'].vocab)
-        n_classes = len(training_data.fields['language'].vocab)
-
-        # Initialise a new model
-        if cfg['model_type'] == 'recurrent':
-
-            model = GRUIdentifier(char_vocab_size, n_classes, **cfg)
-        elif cfg['model_type'] == 'small_cnn':
-            padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
-            model = SmallCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"], dropout_p=0.33, num_filters=30,
-                             window_size=3, n_classes=n_classes)
-        elif cfg['model_type'] == 'large_cnn':
-            padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
-            model = CharCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"],
-                            dropout_p=0.5, n_classes=n_classes, length=cfg['max_chars'],)
-        elif cfg['model_type'] == 'word_char':
-            padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
-            raise NotImplementedError()
-        else:
-            raise NotImplementedError()
-
         print("Vocab. size word: ", len(training_data.fields['paragraph'].vocab))
         print("First 10 words: ", " ".join(training_data.fields['paragraph'].vocab.itos[:10]))
         print("Vocab. size chars: ", len(training_data.fields['characters'].vocab))
@@ -130,11 +139,11 @@ def main():
                 print("{} : {}".format(name, list(par.size())))
         print()
 
-        if cfg["resume_from_file"]:
+        if cfg["from_file"]:
 
-           if os.path.isfile(cfg["resume_from_file"]):
+           if os.path.isfile(cfg["from_file"]):
 
-               file = cfg["resume_from_file"]
+               file = cfg["from_file"]
                print("Loading model from file '{}'".format(file))
                resume_state = torch.load(file)
                model.load_state_dict(resume_state['state_dict'])
@@ -143,7 +152,7 @@ def main():
                      .format(file, resume_state['epoch']))
            else:
                resume_state = None
-               print("=> no checkpoint found at '{}'".format(cfg["resume_from_file"]))
+               print("=> no checkpoint found at '{}'".format(cfg["from_file"]))
         else:
             resume_state = None
 
@@ -155,9 +164,17 @@ def main():
               resume_state=resume_state, **cfg)
 
     elif cfg['mode'] == 'test':  # Let's separate test from inference mode
-        raise NotImplementedError()
-        # Load model
-        # Run test() from test.py
+        if os.path.isfile(cfg["from_file"]):
+            file = cfg["from_file"]
+            print("Loading model from file '{}'".format(file))
+            resume_state = torch.load(file)
+            model.load_state_dict(resume_state['state_dict'])
+            if use_cuda: model.cuda()
+            accuracy = test(model, testing_iterator, True)
+            print("Test Accuracy : {:.4f}.".format(accuracy))
+        else:
+            resume_state = None
+            print("=> no checkpoint found at '{}'".format(cfg["from_file"]))
     elif cfg['mode'] == 'predict':  # Let's separate test from inference mode
         raise NotImplementedError()
 

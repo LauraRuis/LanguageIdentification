@@ -3,6 +3,7 @@ import os
 import sys
 import numpy
 
+from collections import Counter
 from torchtext.data import Iterator
 from LanguageIdentifier.model import Model, RecurrentModel
 
@@ -14,6 +15,7 @@ def test(model : Model, testing_data : Iterator, output_matrix : bool=False) -> 
     classes = testing_data.dataset.fields['language'].vocab.itos
     n_classes = len(classes)
     confusion_matrix = numpy.zeros((n_classes, n_classes))
+    sparse_matrix = Counter()
 
     for j, batch in enumerate(iter(testing_data)):
         characters = batch.characters[0]
@@ -32,6 +34,7 @@ def test(model : Model, testing_data : Iterator, output_matrix : bool=False) -> 
         for p, t in zip(predicted_languages, languages):
             if p != t:
                 confusion_matrix[p][t] += 1
+                sparse_matrix[(classes[p],classes[t])] += 1
 
     if output_matrix:
         with open("confusion_matrix.txt", 'w') as f:
@@ -42,5 +45,9 @@ def test(model : Model, testing_data : Iterator, output_matrix : bool=False) -> 
                 f.write("{}\t".format(classes[i]))
                 f.write("\t".join(map(str, line)))
                 f.write("\n")
+
+        with open("sparse_matrix.txt", 'w') as f:
+            for lan, score in sparse_matrix.most_common():
+                f.write("{} - {} : {}\n".format(lan[0], lan[1], score))
 
     return numpy.array([sample.item() for sample in batch_accuracies]).mean()
