@@ -1,0 +1,9 @@
+batch_size : 8
+log_frequency : 50
+dropout_p : 0.0
+eval_frequency : 50
+epochs : 10
+embedding_dim : 30
+hidden_dim : 200
+level : "word"
+bidirectional : True
