@@ -25,7 +25,7 @@ def get_data_fields(fixed_lengths: int) -> dict:
                        eos_token=END_TOKEN, pad_token=PAD_TOKEN, fix_length=fixed_lengths)
 
     nesting_field = Field(tokenize=list, pad_token=PAD_TOKEN, batch_first=True,
-                          init_token=START_TOKEN, eos_token=END_TOKEN)
+                          init_token=None, eos_token=END_TOKEN)
     paragraph = NestedField(nesting_field, pad_token=PAD_TOKEN, eos_token=END_TOKEN,
                             include_lengths=True)
     #
@@ -100,11 +100,13 @@ class WiLIDataset(Dataset):
         return len(example.characters)
 
     def __init__(self, paragraph_path: str, label_path: str, fields: dict, split_sentences: bool, train: bool,
-                 max_chars: int=1000,
+                 max_chars: int=1000, level: str="char",
                  **kwargs):
         """
         Create a WiLIDataset given a path two the raw text and to the labels and field dict.
         """
+
+        self.level = level
 
         with io.open(os.path.expanduser(paragraph_path), encoding="utf8") as f_par, \
                 io.open(os.path.expanduser(label_path), encoding="utf8") as f_lab:
@@ -128,7 +130,8 @@ class WiLIDataset(Dataset):
 def load_data(training_text: str, training_labels: str, testing_text: str, testing_labels: str,
               validation_text: str, validation_labels: str, max_chars: int=1000,
               max_chars_test: int=-1,
-              split_paragraphs: bool=False, fix_lengths: bool=False, **kwargs) -> (WiLIDataset, WiLIDataset):
+              split_paragraphs: bool=False, fix_lengths: bool=False, 
+              **kwargs) -> (WiLIDataset, WiLIDataset):
 
     # load training and testing data
     if fix_lengths:

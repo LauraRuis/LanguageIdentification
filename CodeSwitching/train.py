@@ -51,13 +51,13 @@ def train(optimizer: adam=None, model: Model=None,
                 sequence = batch.characters[0]
                 lengths = batch.characters[1]
                 target = batch.language_per_char[0]
-                # sequence = sequence[]
                 # NLLLoss for using the log_softmax in the recurrent model
                 pad_idx = training_data.dataset.fields['characters'].vocab.stoi[PAD_TOKEN]
                 loss_function = torch.nn.NLLLoss(ignore_index=pad_idx)
             else:
                 sequence = batch.paragraph[0]
                 lengths = batch.paragraph[1]
+                char_lengths = batch.paragraph[2]
                 target = batch.language_per_word[0]
                 # NLLLoss for using the log_softmax in the recurrent model
                 pad_idx = training_data.dataset.fields['paragraph'].vocab.stoi[PAD_TOKEN]
@@ -68,7 +68,7 @@ def train(optimizer: adam=None, model: Model=None,
             if isinstance(model, RecurrentModel):
                 predictions = model.forward(sequence, lengths)
             else:
-                predictions = model.forward(sequence)
+                predictions = model.forward(sequence, char_lengths, lengths)
 
             bsz, time, n_languages = predictions.shape
             loss = loss_function(predictions.view(bsz * time, n_languages), target.view(-1))

@@ -69,14 +69,13 @@ def test(model : Model, testing_data : Iterator, level : str, show_example : boo
         else:
             sequence = batch.paragraph[0]
             lengths = batch.paragraph[1]
+            char_lengths = batch.paragraph[2]
             target = batch.language_per_word[0]
 
         if model.name == "recurrent":            
             predictions = model.forward(sequence, lengths)
         else:
-            sequence = sequence.cuda() if torch.cuda.is_available() else sequence
-            target = target.cuda() if torch.cuda.is_available() else target
-            predictions = model.forward(sequence)
+            predictions = model.forward(sequence, char_lengths, lengths)
 
         # Save data needed to calculate accuracy for later
         tp_accuracy, cl_accuracy, confusion_matrix = calculate_accuracy(predictions, target, lengths, confusion_matrix, sparse_matrix)

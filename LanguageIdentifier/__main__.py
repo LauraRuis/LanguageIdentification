@@ -7,10 +7,11 @@ import os
 from torch.optim.lr_scheduler import LambdaLR
 import numpy as np
 import yaml
+import math
 
 from LanguageIdentifier.train import train
 from LanguageIdentifier.data import load_data
-from LanguageIdentifier.model import GRUIdentifier, CharCNN, SmallCNN
+from LanguageIdentifier.model import GRUIdentifier, CharCNN, SmallCNN, CNNRNN
 from LanguageIdentifier.utils import PAD_TOKEN
 from LanguageIdentifier.test import test
 
@@ -39,6 +40,7 @@ def main():
 
     # general model parameters
     ap.add_argument('--model_type', type=str, default='recurrent')
+    ap.add_argument('--level', type=str, default='char')
     ap.add_argument('--learning_rate', type=float, default=1e-3)
     ap.add_argument('--batch_size', type=int, default=100)
     ap.add_argument('--epochs', type=int, default=10)
@@ -127,7 +129,7 @@ def main():
             scheduler = None
         elif cfg["optimizer"] == "sgd":
             par_optimizer = torch.optim.SGD(model.parameters(), lr=cfg["learning_rate"], momentum=0.9)
-            scheduler = LambdaLR(par_optimizer, lr_lambda=lambda t: 0.5**(t / 3))
+            scheduler = LambdaLR(par_optimizer, lr_lambda=lambda t: 0.8**(t / 3))
         else:
             raise NotImplementedError()
 
