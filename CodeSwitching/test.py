@@ -8,8 +8,8 @@ from torchtext.data import Iterator
 from LanguageIdentifier.model import Model, RecurrentModel, GRUIdentifier, CharModel
 
 
-THRESHOLD = 0
-
+THRESHOLD_WORD = 0
+THRESHOLD_CHAR = 20
 
 def print_example(sequence, prediction, target, data):
     itos = data.dataset.fields['paragraph'].vocab.itos
@@ -33,14 +33,17 @@ def calculate_scores(scores, prediction, target):
     return scores
 
 
-def to_languages(languages):
+def to_languages(languages, level):
     language_count = Counter(languages)
-    return set(lan for lan in languages if language_count[lan] > THRESHOLD)
+    if level == "char":
+        return set(lan for lan in languages if language_count[lan] > THRESHOLD_CHAR)
+    else:
+        return set(lan for lan in languages if language_count[lan] > THRESHOLD_WORD) 
 
 
 def calculate_accuracy(predictions : torch.Tensor, targets : torch.Tensor,
                        lengths : torch.Tensor, n_classes : int,
-                       scores : Counter=None,
+                       level : str, scores : Counter=None,
                        confusion_matrix : numpy.matrix=None,
                        sparse_matrix : Counter=None) -> float:
 
@@ -64,7 +67,7 @@ def calculate_accuracy(predictions : torch.Tensor, targets : torch.Tensor,
                     confusion_matrix[p][t] += 1
                     sparse_matrix[(p,t)] += 1
 
-        predicted_labels = to_languages(predicted_labels.cpu().numpy()) 
+        predicted_labels = to_languages(predicted_labels.cpu().numpy(), level)
         target = set(target.cpu().numpy())
         scores = calculate_scores(scores, predicted_labels, target)
 
@@ -105,7 +108,7 @@ def test(model : Model, testing_data : Iterator, level : str, show_example : boo
         else:
             sequence = batch.paragraph[0]
             lengths = batch.paragraph[1]
-            char_lengths = batch.paragraph[2]
+            char_lengths = batch.paragraph[2 if len(batch.paragraph) == 3 else 1]
             target = batch.language_per_word[0]
 
         if model.name == "recurrent" or model.name == "convolutional":
@@ -116,8 +119,8 @@ def test(model : Model, testing_data : Iterator, level : str, show_example : boo
         # Save data needed to calculate accuracy for later
         tp_accuracy, cl_accuracy, confusion_matrix, sparse_matrix, scores = \
             calculate_accuracy(
-                predictions, target, lengths, n_classes, scores, 
-                confusion_matrix, sparse_matrix
+                predictions, target, lengths, n_classes, level, scores, 
+                confusion_matrix, sparse_matrix,
             )
         batch_accuracies["text_partitioning"].append(tp_accuracy)
         batch_accuracies["classification"].append(cl_accuracy)

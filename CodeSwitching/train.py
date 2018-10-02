@@ -57,7 +57,7 @@ def train(optimizer: adam=None, model: Model=None,
             else:
                 sequence = batch.paragraph[0]
                 lengths = batch.paragraph[1]
-                char_lengths = batch.paragraph[2]
+                char_lengths = batch.paragraph[2 if len(batch.paragraph) == 3 else 1]
                 target = batch.language_per_word[0]
                 # NLLLoss for using the log_softmax in the recurrent model
                 pad_idx = training_data.dataset.fields['paragraph'].vocab.stoi[PAD_TOKEN]
@@ -77,7 +77,9 @@ def train(optimizer: adam=None, model: Model=None,
             _, predicted_languages = torch.topk(predictions, 1)
 
             # Save data needed to calculate accuracy for later
-            batch_accuracy_tp, batch_f_micro = calculate_accuracy(predictions, target, lengths, model.n_classes)
+            batch_accuracy_tp, batch_f_micro = calculate_accuracy(
+                predictions, target, lengths, model.n_classes, level
+            )
             batch_accuracies["TP"].append(batch_accuracy_tp)
             batch_accuracies["CL"].append(batch_f_micro)
             epoch_accuracies["TP"].append(batch_accuracy_tp)
