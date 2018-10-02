@@ -8,7 +8,7 @@ import datetime
 from torchtext.data import Iterator
 from torch.optim import adam
 
-from CodeSwitching.model import Model, RecurrentModel, GRUIdentifier
+from CodeSwitching.model import Model, RecurrentModel, GRUIdentifier, CharModel
 from CodeSwitching.test import test, calculate_accuracy
 from CodeSwitching.utils import save_model, PAD_TOKEN
 
@@ -65,7 +65,7 @@ def train(optimizer: adam=None, model: Model=None,
 
             batch_size = sequence.shape[0]
 
-            if isinstance(model, RecurrentModel):
+            if isinstance(model, RecurrentModel) or isinstance(model, CharModel):
                 predictions = model.forward(sequence, lengths)
             else:
                 predictions = model.forward(sequence, char_lengths, lengths)

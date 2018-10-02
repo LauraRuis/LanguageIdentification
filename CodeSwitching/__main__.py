@@ -9,7 +9,7 @@ import math
 from CodeSwitching.test import test
 from CodeSwitching.train import train
 from CodeSwitching.data import load_data
-from CodeSwitching.model import GRUIdentifier, CharCNN, CNNRNN
+from CodeSwitching.model import GRUIdentifier, SmallCNN, CNNRNN
 from CodeSwitching.utils import PAD_TOKEN
 
 
@@ -36,7 +36,6 @@ def main():
     ap.add_argument('--learning_rate', type=float, default=1e-3)
     ap.add_argument('--batch_size', type=int, default=100)
     ap.add_argument('--epochs', type=int, default=10)
-    ap.add_argument('--level', type=str, default='char')
 
     # logging parameters
     ap.add_argument('--eval_frequency', type=int, default=100)
@@ -86,11 +85,10 @@ def main():
         # Initialise a new model
         if cfg['model_type'] == 'recurrent':
             model = GRUIdentifier(vocab_size, n_classes, vocab=training_data.fields['characters'].vocab.itos, **cfg)
-        elif cfg['model_type'] == 'character_cnn':
+        elif cfg['model_type'] == 'small_cnn':
             padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
-            model = CharCNN(vocab_size, padding_idx,
-                            emb_dim=cfg["embedding_dim"], num_filters=30, window_size=3, dropout_p=0.33,
-                            n_classes=n_classes)
+            model = SmallCNN(vocab_size, padding_idx, emb_dim=cfg["embedding_dim"], dropout_p=0, num_filters=60,
+                             window_size=5, n_classes=n_classes)
         elif cfg['model_type'] == 'cnn_rnn':
             char_vocab_size = len(training_data.fields['paragraph'].vocab)
             d = round(math.log(abs(char_vocab_size)))
