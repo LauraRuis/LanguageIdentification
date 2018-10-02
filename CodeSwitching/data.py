@@ -84,7 +84,7 @@ def data_reader(x_file: Iterable, y_file: Iterable, switch_file : Iterable) -> d
         second_lang_text = x[switch:]
 
         for token in string.punctuation:
-            if token != "." and token != ":" and token != "!" and token != ",":
+            if token != "." and token != ":" and token != "!" and token != "," and token != "?":
                 first_lang_text = first_lang_text.replace(token, "")
                 second_lang_text = second_lang_text.replace(token, "")
             else:

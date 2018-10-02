@@ -97,7 +97,7 @@ def train(optimizer: adam=None, model: Model=None,
                 train_accuracy_tp = np.array(batch_accuracies["TP"]).mean()
 
                 batch_accuracies = {"TP" : [], "CL" : []}
-                validation_accuracy_tp, validation_accuracy_cl = test(model, validation_data, level, lengths)
+                validation_accuracy_tp, validation_accuracy_cl = test(model, validation_data, level)
                 print(datetime.datetime.now(), " Evaluation: Epoch: {} | Iter: {} | Loss: {} | "
                       "Av. Batch Train acc. CL {:.4f}| Batch Train acc. TP {:.4f}| | Validation acc. CL {:.2f} | Validation acc. TP {:.2f}".format(
                       i, j, loss.item(), train_accuracy_cl, train_accuracy_tp, validation_accuracy_cl, validation_accuracy_tp
@@ -118,13 +118,14 @@ def train(optimizer: adam=None, model: Model=None,
                                    'optimizer': optimizer.state_dict(),
                                },
                                filename=cfg["model_type"] + "_best_model.pth.tar")
+                    torch.save(model, output_dir + "/" + cfg["model_type"] + "_best_model.pt")
 
         train_accuracy_tp = np.array(epoch_accuracies["TP"]).mean()
         train_accuracy_cl = np.array(epoch_accuracies["CL"]).mean()
 
         epoch_accuracies = {"TP" : [], "CL" : []}
-        validation_accuracy_tp, validation_accuracy_cl = test(model, validation_data, level, lengths)
-        test_accuracy_tp, test_accuracy_cl = test(model, testing_data, level, lengths)
+        validation_accuracy_tp, validation_accuracy_cl = test(model, validation_data, level)
+        test_accuracy_tp, test_accuracy_cl = test(model, testing_data, level)
 
         print(datetime.datetime.now(), " Epoch: {} finished | Average loss: {:.4f} | "
               "Av. Batch Train accuracy CL: {:.2f} | Av. Batch Train accuracy TP: {:.2f} | Validation acc. CL {:.2f} | Validation acc. TP {:.2f}".format(

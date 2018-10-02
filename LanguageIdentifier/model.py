@@ -37,7 +37,6 @@ class GRUIdentifier(RecurrentModel):
         for layer_p in self.gru._all_weights:
             for p in layer_p:
                 if 'weight' in p:
-                    print("YUP")
                     nn.init.orthogonal_(self.gru.__getattr__(p))
 
         if bidirectional:
@@ -46,8 +45,7 @@ class GRUIdentifier(RecurrentModel):
             self.hidden2label = nn.Linear(hidden_dim, n_classes)            
 
     def init_hidden(self, batch_size : int) -> torch.Tensor:
-        #h_0 = Variable(torch.zeros(2 if self.bidirectional else 1,
-                       # batch_size, self.hidden_dim))
+        # Initialise hidden state with learned hidden state
         h_0 = self.h_0_init.repeat(2 if self.bidirectional else 1, batch_size, 1)
 
         if torch.cuda.is_available():
@@ -58,7 +56,7 @@ class GRUIdentifier(RecurrentModel):
     def forward(self, sentence : Variable, lengths : torch.Tensor) -> torch.Tensor:
 
         batch_size = sentence.shape[0]
-        x = self.embeddings(sentence)  # time, batch, dim
+        x = self.embeddings(sentence)  # batch, time, dim
         x = self.dropout(x)
         packed_x = pack_padded_sequence(x, lengths, batch_first=True)
 
@@ -68,7 +66,6 @@ class GRUIdentifier(RecurrentModel):
         recurrent_out, _ = pad_packed_sequence(recurrent_out, batch_first=True)
 
         # Unpack packed sequences
-        #recurrent_out = torch.transpose(recurrent_out, 1, 0)  # batch, time, dim
         dim = recurrent_out.size(2)
         indices = lengths.view(-1, 1).unsqueeze(2).repeat(1, 1, dim) - 1
         indices = indices.cuda() if torch.cuda.is_available() else indices
