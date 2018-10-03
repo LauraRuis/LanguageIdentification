@@ -150,7 +150,7 @@ class CharCNN(CharModel):
 
     def __init__(self, n_chars, padding_idx, emb_dim, dropout_p, n_classes, length):
         super(CharCNN, self).__init__(n_chars, padding_idx, emb_dim=emb_dim, output_dim=100,
-                                      dropout_p=dropout_p, embed_chars=False)
+                                      dropout_p=dropout_p, embed_chars=True)
 
         self.n_chars = n_chars
 
@@ -159,7 +159,7 @@ class CharCNN(CharModel):
         max_pool_kernel_size = 3
         max_pool_stride = 3
         padding = 0
-        conv_spec_1 = dict(in_channels=n_chars, out_channels=256, kernel_size=7, padding=0)
+        conv_spec_1 = dict(in_channels=emb_dim, out_channels=256, kernel_size=7, padding=0)
         conv_spec_2 = dict(in_channels=256, out_channels=256, kernel_size=7, padding=0)
         conv_spec_3 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=0)
         conv_spec_4 = dict(in_channels=256, out_channels=256, kernel_size=3, padding=0)
@@ -215,7 +215,7 @@ class CharCNN(CharModel):
     def char_model(self, embedded=None):
 
         # one hot vector
-        embedded = self.one_hot(embedded)
+        # embedded = self.one_hot(embedded)
         embedded = torch.transpose(embedded, 1, 2)  # (bsz, dim, time)
 
         # conv net
@@ -246,12 +246,13 @@ class CNNRNN(nn.Module):
         self.conv2_3 = nn.Conv1d(n1, num_filters, kernel_size)
         self.conv2_4 = nn.Conv1d(n1, num_filters, 4)
         self.conv2_5 = nn.Conv1d(n1, num_filters, 5)
-        self.dropout = nn.Dropout(p=0.25)
-        self.lstm = nn.LSTM(3 * num_filters, 128, num_layers=1, bidirectional=True)  # TODO fix back
+        # self.dropout = nn.Dropout(p=0.25)
+        self.hidden_dim = 64
+        self.lstm = nn.LSTM(3 * num_filters, self.hidden_dim, num_layers=1, bidirectional=True)  # TODO fix back
 
-        self.hidden_dim = 128
+
         self.bidirectional = True
-        self.linear_lstm = nn.Linear(128 * 2, n_classes)
+        self.linear_lstm = nn.Linear(self.hidden_dim * 2, n_classes)
 
         h0_tensor = torch.Tensor(1, self.hidden_dim)
         c0_tensor = torch.Tensor(1, self.hidden_dim)
@@ -328,6 +329,13 @@ class CNNRNN(nn.Module):
         bsz, seq_length, char_length, dim = embedded.shape
         embedded = embedded.transpose(3, 2)
 
+        # pad embeddings if too small for convolutions
+        if char_length < 7:
+            diff = 7 - char_length
+            zeros_tensor = torch.zeros(bsz, seq_length, dim, diff)
+            zeros_tensor = zeros_tensor.cuda() if torch.cuda.is_available() else zeros_tensor
+            embedded = torch.cat((embedded, zeros_tensor), 3)
+            char_length = embedded.shape[3]
         out = self.relu(self.conv1(embedded.view(bsz * seq_length, dim, char_length)))
 
         out_3 = self.relu(self.conv2_3(out))

@@ -93,32 +93,31 @@ def main():
     print("Loaded %d test samples" % len(testing_data))
     print()
 
-    if cfg['mode'] == 'train':
 
-        # Calculate args needed for recurrent model, move these lines if used
-        # by other models / pieces of code
-        char_vocab_size = len(training_data.fields['characters'].vocab)
-        n_classes = len(training_data.fields['language'].vocab)
+    # Calculate args needed for recurrent model, move these lines if used
+    # by other models / pieces of code
+    char_vocab_size = len(training_data.fields['characters'].vocab)
+    n_classes = len(training_data.fields['language'].vocab)
 
-        # Initialise a new model
-        if cfg['model_type'] == 'recurrent':
+    # Initialise a new model
+    if cfg['model_type'] == 'recurrent':
 
-            model = GRUIdentifier(char_vocab_size, n_classes, **cfg)
-        elif cfg['model_type'] == 'small_cnn':
-            padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
-            model = SmallCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"], dropout_p=0, num_filters=60,
-                             window_size=5, n_classes=n_classes)
-        elif cfg['model_type'] == 'large_cnn':
-            padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
-            model = CharCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"],
-                            dropout_p=0.5, n_classes=n_classes, length=cfg['max_chars'],)
-        elif cfg['model_type'] == 'cnn_rnn':
-            char_vocab_size = len(training_data.fields['paragraph'].vocab)
-            d = round(math.log(abs(char_vocab_size)))
-            model = CNNRNN(char_vocab_size, d, n_classes, num_filters=50, kernel_size=3, n1=1,
-                           vocab=training_data.fields['paragraph'].vocab.itos)
-        else:
-            raise NotImplementedError()
+        model = GRUIdentifier(char_vocab_size, n_classes, **cfg)
+    elif cfg['model_type'] == 'small_cnn':
+        padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
+        model = SmallCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"], dropout_p=0, num_filters=60,
+                         window_size=5, n_classes=n_classes)
+    elif cfg['model_type'] == 'large_cnn':
+        padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
+        model = CharCNN(char_vocab_size, padding_idx, emb_dim=cfg["embedding_dim"],
+                        dropout_p=0, n_classes=n_classes, length=cfg['max_chars'],)
+    elif cfg['model_type'] == 'cnn_rnn':
+        char_vocab_size = len(training_data.fields['paragraph'].vocab)
+        d = round(math.log(abs(char_vocab_size)))
+        model = CNNRNN(char_vocab_size, cfg['embedding_dim'], n_classes, num_filters=54, kernel_size=3, n1=30,
+                       vocab=training_data.fields['paragraph'].vocab.itos)
+    else:
+        raise NotImplementedError()
 
     if cfg['mode'] == 'train':
         print("Vocab. size word: ", len(training_data.fields['paragraph'].vocab))
@@ -174,9 +173,10 @@ def main():
             file = cfg["from_file"]
             print("Loading model from file '{}'".format(file))
             resume_state = torch.load(file)
+
             model.load_state_dict(resume_state['state_dict'])
             if use_cuda: model.cuda()
-            accuracy = test(model, testing_iterator, True)
+            accuracy = test(model, testing_iterator, True, cfg['level'])
             print("Test Accuracy : {:.4f}.".format(accuracy))
         else:
             resume_state = None

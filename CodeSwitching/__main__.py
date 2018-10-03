@@ -91,11 +91,11 @@ def main():
     elif cfg['model_type'] == 'small_cnn':
         padding_idx = training_data.fields['characters'].vocab.stoi[PAD_TOKEN]
         model = SmallCNN(vocab_size, padding_idx, emb_dim=cfg["embedding_dim"], dropout_p=0, num_filters=60,
-                         window_size=5, n_classes=n_classes)
+                         window_size=3, n_classes=n_classes)
     elif cfg['model_type'] == 'cnn_rnn':
         char_vocab_size = len(training_data.fields['paragraph'].vocab)
         d = round(math.log(abs(char_vocab_size)))
-        model = CNNRNN(char_vocab_size, d, vocab_size, n_classes, num_filters=50, kernel_size=3, n1=1, n2=1,
+        model = CNNRNN(char_vocab_size, cfg["embedding_dim"], n_classes, num_filters=54, kernel_size=3, n1=30,
                        vocab=training_data.fields['paragraph'].vocab.itos)
     else:
         raise NotImplementedError()

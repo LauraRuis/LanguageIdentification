@@ -51,7 +51,7 @@ def empty_example() -> dict:
     return ex
 
 
-def data_reader(x_file: Iterable, y_file: Iterable, train: bool, split_sentences, max_chars: int) -> dict:
+def data_reader(x_file: Iterable, y_file: Iterable, train: bool, split_sentences, max_chars: int, level: str) -> dict:
     """
     Return examples as a dictionary.
     """
@@ -81,11 +81,34 @@ def data_reader(x_file: Iterable, y_file: Iterable, train: bool, split_sentences
             paragraph = x.split()
             language = y
 
-            example['paragraph'] = [word.lower() for word in paragraph]
+            count = 0
+
+            if level == "char" or train:
+                example['paragraph'] = [word.lower() for word in paragraph[:max_chars]]
+            else:
+
+                example['paragraph'] = []
+                for word in paragraph:
+                    cur_word = word.lower()
+                    room_left = max_chars - count
+                    count += len(cur_word)
+                    if not count > max_chars and len(cur_word) > 0:
+                        example['paragraph'].append(cur_word)
+                    elif room_left > 0:
+                        count -= len(cur_word) + len(''.join(list(cur_word)[:room_left]))
+                        example['paragraph'].append(''.join(list(cur_word)[:room_left]))
+                        break
+                    else:
+                        count -= len(cur_word)
+                        break
+                assert count <= max_chars, "too much chars, max_chars: {}, count: {},  room_left: {}".format(max_chars, count, room_left)
+                if len(example['paragraph']) == 0:
+                    continue
             example['language'] = language
             example['characters'] = list(x)[:max_chars]
 
             examples.append(example)
+
         yield examples
 
     # possible last sentence without newline after
@@ -114,7 +137,7 @@ class WiLIDataset(Dataset):
                 io.open(os.path.expanduser(label_path), encoding="utf8") as f_lab:
 
             examples = []
-            for d in data_reader(f_par, f_lab, train, split_sentences, max_chars):
+            for d in data_reader(f_par, f_lab, train, split_sentences, max_chars, level):
                 for sentence in d:
                     examples.extend([Example.fromdict(sentence, fields)])
 
@@ -147,7 +170,7 @@ def load_data(training_text: str, training_labels: str, testing_text: str, testi
     _characters = fields['characters'][-1]
 
     training_data = WiLIDataset(training_text, training_labels, fields, split_paragraphs, True, max_chars, level)
-    validation_data = WiLIDataset(validation_text, validation_labels, fields, False, False, max_chars, level)
+    validation_data = WiLIDataset(validation_text, validation_labels, fields, False, False, max_chars_test, level)
     if max_chars_test == -1: max_chars_test = max_chars
     testing_data = WiLIDataset(testing_text, testing_labels, fields, False, False, max_chars_test, level)
 

@@ -4,6 +4,5 @@ dropout_p : 0.0
 eval_frequency : 1000
 epochs : 10
 embedding_dim : 80
-max_chars : 250
 model_type : "small_cnn"
 level : "char"

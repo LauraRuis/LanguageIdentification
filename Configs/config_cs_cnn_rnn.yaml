@@ -3,7 +3,8 @@ log_frequency : 100
 dropout_p : 0.0
 eval_frequency : 1000
 epochs : 10
-embedding_dim : 80
-max_chars : 250
+embedding_dim : 8
+num_filters : 30
+max_chars : 50
 model_type : "cnn_rnn"
 level : "word"
