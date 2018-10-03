@@ -120,7 +120,6 @@ def train(optimizer: adam=None, model: Model=None,
                                    'optimizer': optimizer.state_dict(),
                                },
                                filename=cfg["model_type"] + "_best_model.pth.tar")
-                    torch.save(model, output_dir + "/" + cfg["model_type"] + "_best_model.pt")
 
         train_accuracy_tp = np.array(epoch_accuracies["TP"]).mean()
         train_f_micro = np.array(epoch_accuracies["CL"]).mean()

@@ -53,7 +53,7 @@ class GRUIdentifier(RecurrentModel):
         else:
             return h_0
 
-    def forward(self, sentence : Variable, lengths : torch.Tensor) -> torch.Tensor:
+    def forward_no_softmax(self, sentence : Variable, lengths : torch.Tensor) -> torch.Tensor:
         batch_size = sentence.shape[0]
         x = self.embeddings(torch.transpose(sentence, 0, 1))  # time, batch, dim
         x = self.embeddings_dropout(x)
@@ -66,9 +66,15 @@ class GRUIdentifier(RecurrentModel):
 
         # Classification
         recurrent_out = torch.transpose(recurrent_out, 1, 0)  # batch, time, dim
-        y = self.hidden2label(recurrent_out)
-        log_probs = F.log_softmax(y, 2)
-        return log_probs
+        return self.hidden2label(recurrent_out)
+
+    def infer(self, sentence : Variable, lengths : torch.Tensor) -> torch.Tensor:
+        y = self.forward_no_softmax(sentence, lengths)
+        return F.softmax(y, 2)
+
+    def forward(self, sentence : Variable, lengths : torch.Tensor) -> torch.Tensor:
+        y = self.forward_no_softmax(sentence, lengths)
+        return F.log_softmax(y, 2)
 
 
 class CharModel(nn.Module):
