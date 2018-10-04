@@ -14,6 +14,7 @@ max_ngram = 5
 k = 10000
 #k = 300
 penalty = k + 1
+range_val = 256
 
 
 def read_data(file_name):
@@ -59,10 +60,8 @@ def train():
         print("One language finished...")
 
     print("Now going to test data...")
-    range_val = 512
     x_test = read_data(test_x_file).split("\n")[:-1]
     x_test = [i.lower()[:range_val] for i in x_test]
-    print(x_test[0])
     y_test = read_data(test_y_file).split("\n")[:-1]
     languages = list(language_ranks.keys())
 
