@@ -6,3 +6,8 @@ Usage:
 python -m LanguageIdentifier
 
 python -m CodeSwitching
+
+Requirements:
+
+python -m spacy download en
+pip install spacy
