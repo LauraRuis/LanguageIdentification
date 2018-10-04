@@ -1,0 +1,10 @@
+batch_size : 16
+log_frequency : 1000
+dropout_p : 0.0
+eval_frequency : 5000
+epochs : 3
+embedding_dim : 60
+max_chars : 250
+model_type : "cnn_rnn"
+level : "word"
+split_paragraphs : True

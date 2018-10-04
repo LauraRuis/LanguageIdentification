@@ -179,7 +179,7 @@ class SmallCNN(CharModel):
 
 
 class CNNRNN(nn.Module):
-    def __init__(self, char_vocab_size, embed_size, word_vocab_size, n_classes, num_filters, kernel_size, n1, n2, vocab):
+    def __init__(self, char_vocab_size, embed_size, n_classes, num_filters, kernel_size, n1, vocab):
         super(CNNRNN, self).__init__()
 
         self.char_embedding = nn.Embedding(char_vocab_size, embed_size, padding_idx=1)
@@ -188,19 +188,18 @@ class CNNRNN(nn.Module):
         self.conv2_3 = nn.Conv1d(n1, num_filters, kernel_size)
         self.conv2_4 = nn.Conv1d(n1, num_filters, 4)
         self.conv2_5 = nn.Conv1d(n1, num_filters, 5)
-        self.dropout = nn.Dropout(p=0.25)
-
-        self.lstm = nn.LSTM(3 * num_filters, 128, num_layers=1, bidirectional=True)
+        # self.dropout = nn.Dropout(p=0.25)
+        self.hidden_dim = 64
+        self.lstm = nn.LSTM(3 * num_filters, self.hidden_dim, num_layers=1, bidirectional=True)
         self.n_classes = n_classes
 
-        self.hidden_dim = 128
         self.bidirectional = True
         h0_tensor = torch.Tensor(1, self.hidden_dim)
         c0_tensor = torch.Tensor(1, self.hidden_dim)
         self.h_0_init = nn.Parameter(h0_tensor)
         self.c_0_init = nn.Parameter(c0_tensor)
 
-        self.linear_lstm = nn.Linear(128 * 2, n_classes)
+        self.linear_lstm = nn.Linear(self.hidden_dim * 2, n_classes)
 
         self.vocab = vocab
         self.name = "cnnrnn"

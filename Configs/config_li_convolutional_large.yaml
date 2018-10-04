@@ -1,0 +1,13 @@
+batch_size : 128
+log_frequency : 100
+dropout_p : 0.0
+eval_frequency : 1000
+split_paragraphs : True
+epochs : 10
+embedding_dim : 80
+max_chars : 250
+model_type : "large_cnn"
+fix_lengths : True
+learning_rate : 0.01
+optimizer : "sgd"
+level : "char"
