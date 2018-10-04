@@ -4,7 +4,7 @@ dropout_p : 0.0
 eval_frequency : 1000
 epochs : 10
 embedding_dim : 8
-num_filters : 30
+num_filters : 59
 max_chars : 50
 model_type : "cnn_rnn"
 level : "word"

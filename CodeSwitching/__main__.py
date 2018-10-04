@@ -95,7 +95,7 @@ def main():
     elif cfg['model_type'] == 'cnn_rnn':
         char_vocab_size = len(training_data.fields['paragraph'].vocab)
         d = round(math.log(abs(char_vocab_size)))
-        model = CNNRNN(char_vocab_size, cfg["embedding_dim"], n_classes, num_filters=54, kernel_size=3, n1=30,
+        model = CNNRNN(char_vocab_size, cfg["embedding_dim"], n_classes, num_filters=108, kernel_size=3, n1=59,
                        vocab=training_data.fields['paragraph'].vocab.itos)
     else:
         raise NotImplementedError()
@@ -145,20 +145,42 @@ def main():
               training_data=training_iterator, validation_data=validation_iterator, testing_data=testing_iterator,
               resume_state=resume_state, **cfg)
 
-    elif cfg['mode'] == 'test':  # Let's separate test from inference mode
+    elif cfg['mode'] == 'test' or cfg['mode'] == 'predict':  # Let's separate test from inference mode
         if os.path.isfile(cfg["from_file"]):
             file = cfg["from_file"]
             print("Loading model from file '{}'".format(file))
             resume_state = torch.load(file)
             model.load_state_dict(resume_state['state_dict'])
-            tp, cl = test(model, testing_iterator, cfg['level'], True)
-            print("Test Text Partitioning Accuracy {:.4f}, Classification Accuracy {:.4f}.".format(tp, cl))
+            if cfg['mode'] == 'test':
+                tp, F_micro, F_macro = test(model, testing_iterator, cfg['level'], True)
+                print("Test Text Partitioning Accuracy {:.4f}, ".format(tp) +
+                      "Classification F-micro {:.4f}, ".format(F_micro) + 
+                      "Classification F-macro {:.4f}.".format(F_macro))
+            else:
+                # Ask input from user
+                sequence = input("Please enter a sentence: ")
+                lang1 = input("Please enter language 1: ")
+                lang2 = input("Please enter language 2: ")
+
+                # Forward through the model
+                stoi_chars = testing_data.fields["characters"].vocab.stoi
+                itos_chars = testing_data.fields["characters"].vocab.itos
+                stoi_langs = testing_data.fields["language_per_char"].vocab.stoi
+                itos_langs = testing_data.fields["language_per_char"].vocab.itos
+                sequence_indices = torch.LongTensor([[stoi_chars[char] for char in sequence]]).to(device)
+                length = torch.LongTensor([len(sequence)]).to(device)
+                prediction = model.infer(sequence_indices, length)
+
+                # Decode
+                scores_lang1 = prediction[0, :, stoi_langs[lang1]]
+                scores_lang2 = prediction[0, :, stoi_langs[lang2]]
+                scores_lang1 = scores_lang1 / (scores_lang1 + scores_lang2)
+
+                for char, score in zip(sequence, scores_lang1):
+                    print("{}\t{}".format(char, score))
         else:
             resume_state = None
             print("=> no checkpoint found at '{}'".format(cfg["from_file"]))
-
-    elif cfg['mode'] == 'predict':  # Let's separate test from inference mode
-        raise NotImplementedError()
 
 
 if __name__ == '__main__':
