@@ -9,6 +9,11 @@ Identify the predominant language of a given text with a neural network.
 
 TODO: add what to install
 
+TODO: Dit is igg voor de baseline, dus erbij gezet, versies ook nodig? (collections, time, itertools etc zitten standaard in python toch?)
+- Numpy
+- Sklearn
+- tqdm
+- re
 
 ## Materials used
 
@@ -21,8 +26,7 @@ TODO: add what to install
 ## Training a model
 
 ### Baseline
-
-TODO: add how to run the baseline for monolingual and multilingual language identification.
+Training and testing are both done after each other with one command for both monolingual and multilingual language identification. For those usages, we refer you to the next section for testing a model. 
 
 ### Neural models
 
@@ -38,6 +42,10 @@ Notice that ```LanguageIdentifier``` uses the performance measure accuracy, whil
 ## Testing a model
 
 ### Baseline
+To train and test for the monolingual and multilangual language identification task respectively, the following commands are used:
+```python baseline_2.py```
+```python baseline_codeSwitch.py```
+All settings can be entered at the start of the corresponding python file. _range_val_ can be used to indicate on how many characters the test data will be tested.
 
 ### Neural models
 
