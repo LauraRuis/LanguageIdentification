@@ -2,8 +2,9 @@ from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import numpy as np
 import itertools
+from operator import itemgetter
 
-predictions = "predicted.txt"
+predictions = "predicted_1024.txt"
 # predictions = "predicted_10000.txt"
 true_labels = "wili-2018/y_test.txt"
 
@@ -51,9 +52,23 @@ def make_confusion_matrix():
     true_list = read_data(true_labels).split("\n")[:-1]
     class_names = list(set(true_list))
     matrix = confusion_matrix(true_list, prediction_list, class_names)
-    plt.figure()
-    plot_confusion_matrix(matrix, classes=class_names,
-                      title='Confusion matrix, without normalization')
+    confusions = []
+    for class_id in range(len(class_names)):
+        for class_id_2 in range(len(class_names)):
+            if class_id == class_id_2:
+                print("Correct: " + class_names[class_id])
+            else:
+                val = matrix[class_id][class_id_2]
+                if val != 0:
+                    print("Incorrect:" + class_names[class_id_2], "Value: " + str(val))
+                    confusions.append(((class_names[class_id], class_names[class_id_2]), val))
+        print("----------------------------------------------------------")
+    confusions.sort(key=lambda x: x[1], reverse=True)
+    print(confusions[:20])
+
+    #plt.figure()
+    #plot_confusion_matrix(matrix, classes=class_names,
+    #                  title='Confusion matrix, without normalization')
     plt.show()
 if __name__ == "__main__":
     make_confusion_matrix()
