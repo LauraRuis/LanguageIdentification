@@ -95,7 +95,7 @@ def main():
     elif cfg['model_type'] == 'cnn_rnn':
         char_vocab_size = len(training_data.fields['paragraph'].vocab)
         d = round(math.log(abs(char_vocab_size)))
-        model = CNNRNN(char_vocab_size, cfg["embedding_dim"], n_classes, num_filters=54, kernel_size=3, n1=30,
+        model = CNNRNN(char_vocab_size, cfg["embedding_dim"], n_classes, num_filters=108, kernel_size=3, n1=59,
                        vocab=training_data.fields['paragraph'].vocab.itos)
     else:
         raise NotImplementedError()

@@ -52,3 +52,4 @@ The ```max_chars_test``` setting allows you to use a different length cutoff for
 Additionally, ```CodeSwitching``` can be run in inference mode, by simple running:
 
 ```python -m CodeSwitching --config config.yaml --mode predict```
+
