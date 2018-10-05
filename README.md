@@ -18,6 +18,7 @@ This Github repository contains the code for two language identification tasks, 
 - We trained our ```CodeSwitching``` models on the ALTW2010 Shared Task Dataset. (http://www.aclweb.org/anthology/U10-1003)
 - The configuration files used are listed in the ```Configs``` folder.
 - Some pretrained models are provided in the ```Models``` folder.
+NB: the datasets are slit in training, validation and testing sets. To obtain these splits one can either download the data from the links and use the provided python file for splitting it or open an issue on this repository.
 
 
 ## Training a model
