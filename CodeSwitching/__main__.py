@@ -163,11 +163,19 @@ def main():
                 lang2 = input("Please enter language 2: ")
 
                 # Forward through the model
-                stoi_chars = testing_data.fields["characters"].vocab.stoi
-                itos_chars = testing_data.fields["characters"].vocab.itos
-                stoi_langs = testing_data.fields["language_per_char"].vocab.stoi
-                itos_langs = testing_data.fields["language_per_char"].vocab.itos
-                sequence_indices = torch.LongTensor([[stoi_chars[char] for char in sequence]]).to(device)
+                if cfg["level"] == "char":
+                    stoi_chars = testing_data.fields["characters"].vocab.stoi
+                    itos_chars = testing_data.fields["characters"].vocab.itos
+                    stoi_langs = testing_data.fields["language_per_char"].vocab.stoi
+                    itos_langs = testing_data.fields["language_per_char"].vocab.itos
+                    sequence_indices = torch.LongTensor([[stoi_chars[char] for char in sequence]]).to(device)
+                else:
+                    sequence = sequence.split()
+                    stoi_word = testing_data.fields["paragraph"].vocab.stoi
+                    itos_word = testing_data.fields["paragraph"].vocab.itos
+                    stoi_langs = testing_data.fields["language_per_word"].vocab.stoi
+                    itos_langs = testing_data.fields["language_per_word"].vocab.itos
+                    sequence_indices = torch.LongTensor([[stoi_word[w] for w in sequence]]).to(device)
                 length = torch.LongTensor([len(sequence)]).to(device)
                 prediction = model.infer(sequence_indices, length)
 

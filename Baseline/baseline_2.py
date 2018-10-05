@@ -4,14 +4,17 @@ from operator import itemgetter
 from collections import Counter
 import time
 from tqdm import tqdm
+import re
 
 train_x_file = "wili-2018/x_train.txt"
 train_y_file = "wili-2018/y_train.txt"
 test_x_file = "wili-2018/x_test.txt"
 test_y_file = "wili-2018/y_test.txt"
 max_ngram = 5
-k = 20000
+k = 10000
+#k = 300
 penalty = k + 1
+range_val = 256
 
 
 def read_data(file_name):
@@ -36,6 +39,9 @@ def train():
     data_per_language = [list(group) for key, group in groupby(combined_data, itemgetter(1))]
     input_data_per_lang = [([entry[0].lower() for entry in lang_data], lang_data[0][1]) for lang_data in data_per_language]
 
+    #for entry, lang in input_data_per_lang:
+    #    print(lang, sum([len(ii) for ii in entry]))
+
     print("Now creating n-grams....")
     language_ranks = {}
     for sents, language in input_data_per_lang:
@@ -55,6 +61,7 @@ def train():
 
     print("Now going to test data...")
     x_test = read_data(test_x_file).split("\n")[:-1]
+    x_test = [i.lower()[:range_val] for i in x_test]
     y_test = read_data(test_y_file).split("\n")[:-1]
     languages = list(language_ranks.keys())
 
@@ -92,12 +99,9 @@ def train():
             print(acc/(i+1))
     acc = acc/len(x_test)
     print("Accuracy: " + str(acc))
-    with open("predicted_10000.txt", 'w') as f:
-        for item in predicted_labels:
-            f.write("%s\n" % item)
-
-
-
+    #with open("predicted_10000.txt", 'w') as f:
+    #    for item in predicted_labels:
+    #        f.write("%s\n" % item)
 
 
 

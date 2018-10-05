@@ -1,14 +1,16 @@
 # LanguageIdentification
 
-TODO: intro, tell about language identification
-Identify the predominant language of a given text with a neural network.
-
+This Github repository contains the code for two language identification tasks, namely monolingual and multilingual language identification. The goal of the models is to identify the predominant language of a given test with a neural network, but where the baseline is not based on a neural network approach, but a simple distance measure. 
 
 ## Prerequisites
 
-
-TODO: add what to install
-
+- Numpy
+- Sklearn
+- tqdm
+- re
+- Python modules (collections, time, itertools, operator)
+- PyTorch
+- Torchtext
 
 ## Materials used
 
@@ -21,8 +23,7 @@ TODO: add what to install
 ## Training a model
 
 ### Baseline
-
-TODO: add how to run the baseline for monolingual and multilingual language identification.
+Training and testing are both done after each other with one command for both monolingual and multilingual language identification. For those usages, we refer you to the next section for testing a model. 
 
 ### Neural models
 
@@ -38,6 +39,13 @@ Notice that ```LanguageIdentifier``` uses the performance measure accuracy, whil
 ## Testing a model
 
 ### Baseline
+To train and test for the monolingual and multilingual language identification task, with the same datasets as the neural networks, respectively, the following commands are used:
+
+```python baseline_2.py```
+
+```python baseline_codeSwitch.py```
+
+All settings can be entered at the start of the corresponding python file. _range_val_ can be used to indicate on how many characters the test data will be tested. For the monolingual task, accuracy is used, while for the multilingual task, the f1 score is used during experimenting.
 
 ### Neural models
 
