@@ -1,18 +1,16 @@
 # LanguageIdentification
 
-TODO: is dit goed zo? 
 This Github repository contains the code for two language identification tasks, namely monolingual and multilingual language identification. The goal of the models is to identify the predominant language of a given test with a neural network, but where the baseline is not based on a neural network approach, but a simple distance measure. 
 
 ## Prerequisites
 
-
-TODO: add what to install
-TODO: Dit is igg voor de baseline, dus erbij gezet
 - Numpy
 - Sklearn
 - tqdm
 - re
 - Python modules (collections, time, itertools, operator)
+- PyTorch
+- Torchtext
 
 ## Materials used
 
