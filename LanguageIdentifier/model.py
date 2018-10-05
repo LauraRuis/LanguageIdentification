@@ -290,41 +290,6 @@ class CNNRNN(nn.Module):
 
     def forward(self, sequence : Variable, char_lengths : torch.Tensor, lengths : torch.Tensor) -> torch.Tensor:
 
-        # bsz, seq_length, char_length = sequence.shape
-        #
-        # word_reps = []
-        # for t in range(seq_length):
-        #
-        #     words = sequence[:, t]
-        #     max_length = char_lengths[:, t].max()
-        #     max_length = max_length if max_length > 7 else 8
-        #     words_chopped = words[:, :max_length]
-        #
-        #     words_chopped = self.char_embedding(words_chopped)
-        #     embedded = torch.transpose(words_chopped, 1, 2)
-        #     out = self.relu(self.conv1(embedded))
-        #     # out = self.dropout(out)
-        #
-        #     out_3 = self.relu(self.conv2_3(out))
-        #     out_4 = self.relu(self.conv2_4(out))
-        #     out_5 = self.relu(self.conv2_5(out))
-        #
-        #     maxpool_3 = nn.MaxPool1d(out_3.shape[2])
-        #     maxpool_4 = nn.MaxPool1d(out_4.shape[2])
-        #     maxpool_5 = nn.MaxPool1d(out_5.shape[2])
-        #
-        #     y_3 = maxpool_3(out_3).squeeze(-1)
-        #     y_4 = maxpool_4(out_4).squeeze(-1)
-        #     y_5 = maxpool_5(out_5).squeeze(-1)
-        #     y = torch.cat([y_3, y_4, y_5], 1)
-        #
-        #     residual = self.linear(y)
-        #
-        #     z = y + self.relu(residual)
-        #     word_reps.append(z.unsqueeze(1))
-        #
-        # z = torch.cat(word_reps, 1)
-
         embedded = self.char_embedding(sequence)
         bsz, seq_length, char_length, dim = embedded.shape
         embedded = embedded.transpose(3, 2)

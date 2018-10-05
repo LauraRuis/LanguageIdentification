@@ -116,7 +116,7 @@ class SmallCNN(CharModel):
                                        embed_chars=True)
 
         self.conv1 = nn.Conv1d(emb_dim, num_filters, 5, padding=5 - 1)
-        self.conv2 = nn.Conv1d(num_filters, num_filters, window_size, padding=window_size - 1)
+        self.conv2 = nn.Conv1d(num_filters, num_filters, 5, padding=window_size - 1)
         self.relu = nn.ReLU()
 
         self.hidden_dim = 128
