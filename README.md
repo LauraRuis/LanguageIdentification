@@ -19,7 +19,7 @@ This Github repository contains the code for two language identification tasks, 
 - The configuration files used are listed in the ```Configs``` folder.
 - Some pretrained models are provided in the ```Models``` folder.
 
-NB: the datasets are slit in training, validation and testing sets. To obtain these splits one can either download the data from the links and use the provided python file for splitting it or open an issue on this repository.
+NB: the datasets are slit in training, validation and testing sets. To obtain these splits one can either download the data from the links and use the provided python file for splitting it or open an issue on this repository after which we will sent the data.
 
 
 ## Training a model
